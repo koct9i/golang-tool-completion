@@ -2,9 +2,11 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"sort"
 	"strings"
 
 	"github.com/urfave/cli/v3"
@@ -131,8 +133,202 @@ OPTIONS:{{template "visibleFlagTemplate" .}}{{end}}
 		Action:                execGo,
 		EnableShellCompletion: true,
 	}
+	initShellCompletion(root)
 
 	_ = root.Run(context.Background(), os.Args)
+}
+
+func initShellCompletion(cmd *cli.Command) {
+	cmd.ShellComplete = enhancedShellComplete
+	for _, sub := range cmd.Commands {
+		initShellCompletion(sub)
+	}
+}
+
+func completionLastArg(cmd *cli.Command) string {
+	args := cmd.Args().Slice()
+	if len(args) == 0 {
+		args = os.Args
+	}
+
+	if len(args) > 1 {
+		return args[len(args)-2]
+	}
+	if len(args) > 0 {
+		return args[len(args)-1]
+	}
+	return ""
+}
+
+func completionOut(cmd *cli.Command, value, usage string) {
+	shell := os.Getenv("SHELL")
+	if usage != "" && (strings.HasSuffix(shell, "zsh") || strings.HasSuffix(shell, "fish")) {
+		_, _ = fmt.Fprintf(cmd.Root().Writer, "%s:%s\n", value, usage)
+		return
+	}
+	_, _ = fmt.Fprintln(cmd.Root().Writer, value)
+}
+
+func completeFlags(cmd *cli.Command, token string) {
+	cur := strings.TrimLeft(token, "-")
+	for _, flag := range cmd.Flags {
+		usage := ""
+		if docFlag, ok := flag.(cli.DocGenerationFlag); ok {
+			usage = docFlag.GetUsage()
+		}
+
+		name := strings.TrimSpace(flag.Names()[0])
+		count := len([]rune(name))
+		if count > 2 {
+			count = 2
+		}
+
+		if strings.HasPrefix(token, "--") && count == 1 {
+			continue
+		}
+		if strings.HasPrefix(name, cur) {
+			completionOut(cmd, fmt.Sprintf("%s%s", strings.Repeat("-", count), name), usage)
+		}
+	}
+}
+
+func completeSubcommands(cmd *cli.Command, token string) {
+	for _, sub := range cmd.Commands {
+		if sub.Hidden || !strings.HasPrefix(sub.Name, token) {
+			continue
+		}
+		completionOut(cmd, sub.Name, sub.Usage)
+	}
+}
+
+func completeFiles(cmd *cli.Command, token, pattern string) {
+	entries, err := os.ReadDir(".")
+	if err != nil {
+		return
+	}
+
+	for _, ent := range entries {
+		name := ent.Name()
+		if !strings.HasPrefix(name, token) {
+			continue
+		}
+
+		if ent.IsDir() {
+			completionOut(cmd, name+"/", "directory")
+			continue
+		}
+		if matched, _ := filepath.Match(pattern, name); matched {
+			completionOut(cmd, name, "file")
+		}
+	}
+}
+
+func completePackages(cmd *cli.Command, token string) {
+	out, err := exec.Command("go", "list", "./...").Output()
+	if err != nil {
+		return
+	}
+
+	for _, pkg := range strings.Split(strings.TrimSpace(string(out)), "\n") {
+		pkg = strings.TrimSpace(pkg)
+		if pkg != "" && strings.HasPrefix(pkg, token) {
+			completionOut(cmd, pkg, "package")
+		}
+	}
+}
+
+func completeEnvVars(cmd *cli.Command, token string) {
+	out, err := exec.Command("go", "env").Output()
+	if err != nil {
+		return
+	}
+
+	seen := map[string]struct{}{}
+	for _, line := range strings.Split(string(out), "\n") {
+		line = strings.TrimSpace(line)
+		if line == "" {
+			continue
+		}
+		name := strings.SplitN(line, "=", 2)[0]
+		if _, ok := seen[name]; ok || !strings.HasPrefix(name, token) {
+			continue
+		}
+		seen[name] = struct{}{}
+		completionOut(cmd, name, "go env variable")
+	}
+}
+
+func completeModDirs(cmd *cli.Command, token string) {
+	var dirs []string
+	_ = filepath.WalkDir(".", func(path string, d os.DirEntry, err error) error {
+		if err != nil {
+			return nil
+		}
+		if d.IsDir() && (strings.HasPrefix(d.Name(), ".") || d.Name() == "vendor") {
+			return filepath.SkipDir
+		}
+		if d.Name() == "go.mod" {
+			dir := strings.TrimPrefix(filepath.Dir(path), "./")
+			dirs = append(dirs, dir)
+		}
+		return nil
+	})
+
+	sort.Strings(dirs)
+	for _, dir := range dirs {
+		if strings.HasPrefix(dir, token) {
+			completionOut(cmd, dir, "module directory")
+		}
+	}
+}
+
+func completeCommandArguments(cmd *cli.Command, token string) {
+	isWorkCmd := false
+	for _, arg := range os.Args {
+		if arg == "work" {
+			isWorkCmd = true
+			break
+		}
+	}
+
+	switch cmd.Name {
+	case "build", "clean", "fix", "fmt", "list", "test", "vet", "why", "edit", "graph":
+		completePackages(cmd, token)
+	case "get", "install":
+		completePackages(cmd, token)
+		if strings.HasSuffix(token, "@") {
+			completionOut(cmd, token+"latest", "latest version")
+		}
+	case "run", "generate":
+		completeFiles(cmd, token, "*.go")
+		completePackages(cmd, token)
+	case "env":
+		completeEnvVars(cmd, token)
+	case "init", "use":
+		if isWorkCmd {
+			completeModDirs(cmd, token)
+		}
+	}
+}
+
+func enhancedShellComplete(_ context.Context, cmd *cli.Command) {
+	lastArg := completionLastArg(cmd)
+	if lastArg == "--" {
+		return
+	}
+
+	if lastArg == "--generate-shell-completion" {
+		lastArg = ""
+	}
+
+	if strings.HasPrefix(lastArg, "-") {
+		completeFlags(cmd, lastArg)
+		return
+	}
+
+	completeSubcommands(cmd, lastArg)
+	completeFlags(cmd, "")
+	completeCommandArguments(cmd, lastArg)
 }
 
 // Executes the system `go` with the original argv exactly as provided.
