@@ -26,6 +26,7 @@ const (
 	catDebug     = "Debugging"
 	catOutput    = "Output"
 	catTool      = "Tooling"
+	catCache     = "Cache"
 
 	rootCommandHelpTemplate = `NAME:
    {{template "helpNameTemplate" .}}
@@ -101,7 +102,6 @@ OPTIONS:{{template "visibleFlagTemplate" .}}{{end}}
 }
 complete -o bashdefault -o default -F __%[1]s_complete_bash %[1]s
 `
-
 )
 
 func main() {
@@ -297,7 +297,7 @@ func docAnchor(h string) string {
 func buildFlags() []cli.Flag {
 	return []cli.Flag{
 		&cli.StringFlag{Name: "C", Usage: "Change to dir before running the command (must be first flag).", Category: catGeneral},
-		&cli.BoolFlag{Name: "a", Usage: "Force rebuilding of packages that are already up-to-date.", Category: catBuild},
+		&cli.BoolFlag{Name: "a", Usage: "Force rebuilding of packages that are already up-to-date.", Category: catCache},
 		&cli.BoolFlag{Name: "n", Usage: "Print the commands but do not run them.", Category: catOutput},
 		&cli.IntFlag{Name: "p", Usage: "The number of programs that can be run in parallel.", Category: catBuild},
 		&cli.BoolFlag{Name: "race", Usage: "Enable data race detection.", Category: catDebug},
@@ -320,7 +320,7 @@ func buildFlags() []cli.Flag {
 		&cli.StringFlag{Name: "ldflags", Usage: "Args for each 'go tool link' invocation.", Category: catBuild},
 		&cli.BoolFlag{Name: "linkshared", Usage: "Link against shared libraries created with -buildmode=shared.", Category: catBuild},
 		&cli.StringFlag{Name: "mod", Usage: "Module download mode: readonly, vendor, or mod.", Category: catModule},
-		&cli.BoolFlag{Name: "modcacherw", Usage: "Leave newly-created module cache directories read-write.", Category: catModule},
+		&cli.BoolFlag{Name: "modcacherw", Usage: "Leave newly-created module cache directories read-write.", Category: catCache},
 		&cli.StringFlag{Name: "modfile", Usage: "Read (and possibly write) an alternate go.mod file.", Category: catModule},
 		&cli.StringFlag{Name: "overlay", Usage: "Read a JSON config file that provides an overlay for build operations.", Category: catBuild},
 		&cli.StringFlag{Name: "pgo", Usage: `PGO profile file ("auto","off", or path).`, Category: catBuild},
@@ -336,7 +336,7 @@ func toolGlobalFlags() []cli.Flag {
 	return []cli.Flag{
 		&cli.StringFlag{Name: "C", Usage: "Change to dir before running the command (must be first flag).", Category: catGeneral},
 		&cli.StringFlag{Name: "overlay", Usage: "Read a JSON config file that provides an overlay for build operations.", Category: catBuild},
-		&cli.BoolFlag{Name: "modcacherw", Usage: "Leave newly-created module cache directories read-write.", Category: catModule},
+		&cli.BoolFlag{Name: "modcacherw", Usage: "Leave newly-created module cache directories read-write.", Category: catCache},
 		&cli.StringFlag{Name: "modfile", Usage: "Read (and possibly write) an alternate go.mod file.", Category: catModule},
 	}
 }
@@ -426,12 +426,12 @@ func cmdClean() *cli.Command {
 		Usage:    "remove object files and cached files",
 		Metadata: map[string]any{"DocURL": docAnchor("Remove_object_files_and_cached_files")},
 		Flags: append([]cli.Flag{
-			&cli.BoolFlag{Name: "i", Usage: "Remove the installed packages for the named targets.", Category: catBuild},
-			&cli.BoolFlag{Name: "r", Usage: "Remove obj and installed files recursively for args and deps.", Category: catBuild},
-			&cli.BoolFlag{Name: "cache", Usage: "Remove all cached build and test results.", Category: catBuild},
-			&cli.BoolFlag{Name: "testcache", Usage: "Expire all test results in the cache.", Category: catTest},
-			&cli.BoolFlag{Name: "modcache", Usage: "Remove the entire module download cache.", Category: catModule},
-			&cli.BoolFlag{Name: "fuzzcache", Usage: "Remove all cached fuzzing values.", Category: catTest},
+			&cli.BoolFlag{Name: "i", Usage: "Remove the installed packages for the named targets.", Category: catCache},
+			&cli.BoolFlag{Name: "r", Usage: "Remove obj and installed files recursively for args and deps.", Category: catCache},
+			&cli.BoolFlag{Name: "cache", Usage: "Remove all cached build and test results.", Category: catCache},
+			&cli.BoolFlag{Name: "testcache", Usage: "Expire all test results in the cache.", Category: catCache},
+			&cli.BoolFlag{Name: "modcache", Usage: "Remove the entire module download cache.", Category: catCache},
+			&cli.BoolFlag{Name: "fuzzcache", Usage: "Remove all cached fuzzing values.", Category: catCache},
 		}, buildFlags()...),
 		ArgsUsage:     "[packages]",
 		Arguments:     []cli.Argument{argPackage()},
