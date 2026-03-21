@@ -98,7 +98,7 @@ OPTIONS:{{template "visibleFlagTemplate" .}}{{end}}
 `
 
 	bashCompletion = `__%[1]s_complete_bash() {
-	mapfile -t COMPREPLY < <("${COMP_WORDS[0]}" __complete_bash "${COMP_WORDS[@]:1}")
+	mapfile -t COMPREPLY < <("${COMP_WORDS[0]}" __complete_bash "${COMP_WORDS[@]:1:COMP_CWORD}")
 }
 complete -o bashdefault -o default -F __%[1]s_complete_bash %[1]s
 `
