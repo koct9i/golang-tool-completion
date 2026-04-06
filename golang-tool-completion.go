@@ -3,11 +3,17 @@ package main
 import (
 	"bufio"
 	"context"
+	"errors"
 	"fmt"
+	"io"
+	"maps"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"slices"
 	"strings"
+
+	"golang.org/x/sys/unix"
 
 	"github.com/urfave/cli/v3"
 )
@@ -94,13 +100,10 @@ COMMANDS:{{template "visibleCommandTemplate" .}}{{end}}{{if .VisibleFlagCategori
 
 OPTIONS:{{template "visibleFlagCategoryTemplate" .}}{{else if .VisibleFlags}}
 
-OPTIONS:{{template "visibleFlagTemplate" .}}{{end}}
-`
+OPTIONS:{{template "visibleFlagTemplate" .}}{{end}}{{if .Metadata.DocURL}}
 
-	bashCompletion = `__%[1]s_complete_bash() {
-	mapfile -t COMPREPLY < <("${COMP_WORDS[0]}" __complete_bash "${COMP_WORDS[@]:1:COMP_CWORD}")
-}
-complete -o bashdefault -o default -F __%[1]s_complete_bash %[1]s
+DOCUMENTATION:
+   {{.Metadata.DocURL}}{{end}}
 `
 )
 
@@ -110,14 +113,31 @@ func main() {
 	cli.CommandHelpTemplate = commandHelpTemplate
 	cli.SubcommandHelpTemplate = subcommandHelpTemplate
 
+	cli.HelpFlag = nil
+
 	root := &cli.Command{
 		Name:      filepath.Base(os.Args[0]),
 		Usage:     "Go is a tool for managing Go source code.",
 		ArgsUsage: "[arguments]",
-		Description: "This wrapper defines commands/flags/args for help/validation, but execution is transparent:\n" +
+		Description: "This wrapper defines commands/flags/args for help/validation/completion, but execution is transparent:\n" +
 			"it always runs the system `go` with the original argv.\n",
 		Metadata: map[string]any{
 			"DocURL": docGoCmd,
+		},
+		Flags: []cli.Flag{
+			&cli.BoolFlag{
+				Name:    "help",
+				Aliases: []string{"h"},
+				Usage:   "show help",
+				Action: func(ctx context.Context, c *cli.Command, b bool) error {
+					if c == c.Root() {
+						cli.ShowRootCommandHelp(c)
+					} else {
+						cli.ShowSubcommandHelp(c)
+					}
+					return cli.Exit("", 0)
+				},
+			},
 		},
 		Commands: []*cli.Command{
 			cmdBug(),
@@ -140,51 +160,120 @@ func main() {
 			cmdTool(),
 			cmdVersion(),
 			cmdVet(),
-			cmdComplete("__complete", ""),
-			cmdComplete("__complete_bash", "bash"),
+			cmdCompletion(),
 		},
-		Action:                execGo,
-		EnableShellCompletion: true,
-		ConfigureShellCompletionCommand: func(c *cli.Command) {
-			c.Hidden = false
-			c.Usage = "generate shell completion script"
-			origAction := c.Action
-			c.Action = func(ctx context.Context, c *cli.Command) error {
-				if c.Args().First() == "bash4" {
-					_, err := c.Writer.Write([]byte(fmt.Sprintf(bashCompletion, c.Root().Name)))
-					return err
-				}
-				return origAction(ctx, c)
+		Action:   noop,
+		HideHelp: true,
+		ExitErrHandler: func(ctx context.Context, c *cli.Command, err error) {},
+	}
+
+	err := root.Run(context.Background(), os.Args)
+	if err == nil {
+		err = execGo(os.Args[1:])
+	}
+	if err != nil {
+		exitCode := 1
+		var exitCoder cli.ExitCoder
+		if errors.As(err, &exitCoder) {
+			exitCode = exitCoder.ExitCode()
+		}
+		if exitCode != 0 {
+			fmt.Fprintln(os.Stderr, err)
+		}
+		os.Exit(exitCode)
+	}
+}
+
+func execGo(args []string) error {
+	goPath, err := exec.LookPath("go")
+	if err != nil {
+		return err
+	}
+	if goPath == os.Args[0] {
+		return fmt.Errorf("recursion detected: found myself instead of go tool")
+	}
+	return unix.Exec(goPath, append([]string{goPath}, args...), os.Environ())
+}
+
+func noop(ctx context.Context, _ *cli.Command) error {
+	return nil
+}
+
+func generateCompletionScript(program, shell string) (scriptPath string, script string, err error) {
+	switch shell {
+	case "bash":
+		scriptPath = fmt.Sprintf("bash-completion/completions/%s", program)
+		script = fmt.Sprintf(`__%s_complete_bash() {
+  mapfile -t COMPREPLY < <("${COMP_WORDS[0]}" completion --complete bash -- "${COMP_WORDS[@]:1:COMP_CWORD}")
+}
+complete -o bashdefault -o default -F __%[1]s_complete_bash %[1]s
+`, program)
+
+	case "fish":
+		scriptPath = fmt.Sprintf("fish/vendor_completions.d/%s.fish", program)
+		script = fmt.Sprintf(`function __fish_%[1]s_complete
+  set -l args (commandline -opc) (commandline -ct)
+  set -e args[1]
+  %[1]s completion --complete fish -- $args
+end
+complete -c %[1]s -a "(__fish_%[1]s_complete)"
+`, program)
+
+	case "zsh":
+		scriptPath = fmt.Sprintf("zsh/site-functions/_%s", program)
+		script = fmt.Sprintf(`#compdef %[1]s
+_%[1]s() {
+  local -a completions
+  completions=(${(f)"$("${words[1]}" completion --complete zsh -- "${words[@]:1:$((CURRENT-1))}")"})
+  if (( ${#completions[@]} )); then
+    _describe 'completions' completions
+  else
+    _default
+  fi
+}
+compdef _%[1]s %[1]s
+if [ "$funcstack[1]" = "_%[1]s" ]; then
+  _%[1]s
+fi
+`, program)
+
+	case "":
+		return "", "", fmt.Errorf("Shell is not specified")
+	default:
+		return "", "", fmt.Errorf("Shell %q is not supported yet. Choose: bash, fish, zsh", shell)
+	}
+
+	return scriptPath, script, nil
+}
+
+func doCompletionScript(writer io.Writer, app, shell string, install bool) error {
+	scriptPath, script, err := generateCompletionScript(app, shell)
+	if err != nil {
+		return err
+	}
+	if install {
+		dataHomeDir := os.Getenv("XDG_DATA_HOME")
+		if dataHomeDir == "" {
+			userHomeDir, err := os.UserHomeDir()
+			if err != nil {
+				return err
 			}
-		},
-		ShellComplete: shellComplete,
+			dataHomeDir = filepath.Join(userHomeDir, ".local/share")
+		}
+		scriptPath = filepath.Join(dataHomeDir, scriptPath)
+		fmt.Fprintf(writer, "Installing completion script: %v\n", scriptPath)
+		if err = os.WriteFile(scriptPath, []byte(script), 0644); err != nil {
+			return fmt.Errorf("Failed to install completion script: %w", err)
+		}
+	} else if _, err = writer.Write([]byte(script)); err != nil {
+		return err
 	}
-
-	_ = root.Run(context.Background(), os.Args)
+	return cli.Exit("", 0)
 }
 
-func cmdComplete(name, shell string) *cli.Command {
-	return &cli.Command{
-		Name:            name,
-		Hidden:          true,
-		SkipFlagParsing: true,
-		Metadata:        map[string]any{"shell": shell},
-		Action: func(ctx context.Context, c *cli.Command) error {
-			shellComplete(ctx, c)
-			return nil
-		},
-	}
-}
-
-type CompletionSuggest struct {
-	Value, Description string
-}
-
-func shellComplete(ctx context.Context, c *cli.Command) {
-	args := c.Args().Slice()
-
+func doCompletion(ctx context.Context, c *cli.Command, shell string, completeArgs []string) error {
 	lastCmd := c.Root()
-	for _, arg := range args {
+	for _, arg := range completeArgs {
 		if subCmd := lastCmd.Command(arg); subCmd != nil {
 			lastCmd = subCmd
 		} else {
@@ -192,102 +281,114 @@ func shellComplete(ctx context.Context, c *cli.Command) {
 		}
 	}
 
-	lastArg := ""
-	if len(args) > 0 {
-		lastArg = args[len(args)-1]
+	var lastArg string
+	if len(completeArgs) > 0 {
+		lastArg = completeArgs[len(completeArgs)-1]
 	}
 
-	var comp []CompletionSuggest
-
-	if lastArg != "" && lastArg[0] == '-' {
-		curr := strings.TrimLeft(lastArg, "-")
-		dash := lastArg[:len(lastArg)-len(curr)]
-		if dash == "" {
-			dash = "-"
-		}
+	result := map[string]string{}
+	if delim := slices.Index(completeArgs, "--"); delim >= 0 && delim != len(completeArgs)-1 {
+		// No completion for pass-through arguments after "--"
+	} else if len(lastArg) > 0 && lastArg[0] == '-' {
+		// Complete flags
+		prefix := strings.TrimLeft(lastArg, "-")
+		dash := lastArg[:len(lastArg)-len(prefix)]
 		for _, flag := range lastCmd.Flags {
 			for _, name := range flag.Names() {
-				if strings.HasPrefix(name, curr) {
+				if strings.HasPrefix(name, prefix) {
 					if len(name) == 1 && len(dash) > 1 {
 						continue
 					}
 					d := dash
-					if len(name) > 1 && len(curr) == 0 && len(d) == 1 {
+					if len(name) > 1 && len(prefix) == 0 && len(d) == 1 {
 						d = "--"
 					}
 					usage := ""
 					if docFlag, ok := flag.(cli.DocGenerationFlag); ok {
 						usage = docFlag.GetUsage()
 					}
-					comp = append(comp, CompletionSuggest{d + name, usage})
+					result[d+name] = usage
 				}
 			}
 		}
-	}
-
-	if lastArg == "" || lastArg[0] != '-' {
+	} else {
+		// Complete commands
 		for _, subCmd := range lastCmd.Commands {
 			if subCmd.Hidden {
 				continue
 			}
 			if strings.HasPrefix(subCmd.Name, lastArg) {
-				comp = append(comp, CompletionSuggest{subCmd.Name, subCmd.Usage})
-			}
-			if len(lastArg) > 0 {
-				for _, name := range subCmd.Aliases {
+				result[subCmd.Name] = subCmd.Usage
+			} else if len(lastArg) > 0 {
+				for _, alias := range subCmd.Aliases {
 					if strings.HasPrefix(subCmd.Name, lastArg) {
-						comp = append(comp, CompletionSuggest{name, subCmd.Usage})
+						result[alias] = subCmd.Usage
 					}
 				}
 			}
 		}
 	}
 
-	w := bufio.NewWriter(c.Writer)
-	if shell, _ := c.Metadata["shell"].(string); shell == "bash" {
-		if len(comp) == 1 {
-			w.WriteString(comp[0].Value)
-		} else {
-			width := 0
-			for _, c := range comp {
-				width = max(width, len(c.Value))
-			}
-			for _, c := range comp {
-				if c.Description != "" {
-					fmt.Fprintf(w, "%*s (%s)\n", -width-2, c.Value, c.Description)
-				} else {
-					w.WriteString(c.Value)
-				}
-			}
-		}
-	} else {
-		for _, c := range comp {
-			w.WriteString(c.Value)
-			if c.Description != "" {
-				w.WriteString(":")
-				w.WriteString(c.Description)
-				w.WriteString("\n")
-			}
+	buffer := bufio.NewWriter(c.Writer)
+	defer buffer.Flush()
+
+	width := 0
+	for suggest := range result {
+		width = max(width, len(suggest))
+	}
+
+	for _, suggest := range slices.Sorted(maps.Keys(result)) {
+		usage := result[suggest]
+		switch {
+		case shell == "bash" && usage != "" && len(result) > 1:
+			fmt.Fprintf(buffer, "%*s (%s)\n", -width-2, suggest, usage)
+		case shell == "fish":
+			fmt.Fprintf(buffer, "%s\t%s\n", suggest, usage)
+		case shell == "zsh":
+			fmt.Fprintf(buffer, "%s:%s\n", suggest, usage)
+		default:
+			fmt.Fprintln(buffer, suggest)
 		}
 	}
-	w.Flush()
+
+	return cli.Exit("", 0)
 }
 
-// Executes the system `go` with the original argv exactly as provided.
-func execGo(ctx context.Context, _ *cli.Command) error {
-	args := os.Args[1:]
-	c := exec.CommandContext(ctx, "go", args...)
-	c.Stdin = os.Stdin
-	c.Stdout = os.Stdout
-	c.Stderr = os.Stderr
-
-	if err := c.Run(); err != nil {
-		if ee, ok := err.(*exec.ExitError); ok {
-			return cli.Exit("", ee.ExitCode())
-		}
-		return err
+func cmdCompletion() *cli.Command {
+	var complete bool
+	var install bool
+	var shell string
+	var completeArgs []string
+	return &cli.Command{
+		Name:      "completion",
+		Usage:     "generate shell completion",
+		ArgsUsage: "[shell] [-- complete args]...",
+		Flags: []cli.Flag{
+			&cli.BoolFlag{
+				Name:        "complete",
+				Destination: &complete,
+				Usage:       "Generate completion for arguments.",
+			},
+			&cli.BoolFlag{
+				Name:        "install",
+				Destination: &install,
+				Usage:       "Install shell completion script into $XDG_DATA_HOME, ~/.local/share/...",
+			},
+		},
+		Arguments: []cli.Argument{
+			&cli.StringArg{Name: "shell", Destination: &shell},
+			&cli.StringArgs{Name: "complete-args", Destination: &completeArgs, Max: -1},
+		},
+		Action: func(ctx context.Context, c *cli.Command) error {
+			if shell == "" {
+				shell = filepath.Base(os.Getenv("SHELL"))
+			}
+			if !complete {
+				return doCompletionScript(c.Writer, c.Root().Name, shell, install)
+			}
+			return doCompletion(ctx, c, shell, completeArgs)
+		},
 	}
-	return nil
 }
 
 func docAnchor(h string) string {
@@ -344,23 +445,23 @@ func toolGlobalFlags() []cli.Flag {
 func testBinaryFlags() []cli.Flag {
 	return []cli.Flag{
 		&cli.StringFlag{Name: "bench", Usage: "Run only benchmarks matching regexp.", Category: catTest},
-		&cli.StringFlag{Name: "benchtime", Usage: "Run enough iterations to take the specified time (e.g., 1s, 100x).", Category: catTest},
+		&cli.StringFlag{Name: "benchtime", Usage: "Run enough iterations to take the specified time (e.g., 1s, 100x). [cacheable]", Category: catTest},
 		&cli.BoolFlag{Name: "benchmem", Usage: "Print memory allocation stats for benchmarks.", Category: catTest},
-		&cli.IntFlag{Name: "count", Usage: "Run each test/benchmark/fuzz seed n times.", Category: catTest},
-		&cli.StringFlag{Name: "cpu", Usage: "Comma-separated list of GOMAXPROCS values.", Category: catTest},
-		&cli.BoolFlag{Name: "failfast", Usage: "Do not start new tests after the first failure.", Category: catTest},
-		&cli.BoolFlag{Name: "fullpath", Usage: "Show full file names in error messages.", Category: catOutput},
+		&cli.IntFlag{Name: "count", Usage: "Run each test/benchmark/fuzz seed n times. Use -count=1 to disable caching.", Category: catTest},
+		&cli.StringFlag{Name: "cpu", Usage: "Comma-separated list of GOMAXPROCS values. [cacheable]", Category: catTest},
+		&cli.BoolFlag{Name: "failfast", Usage: "Do not start new tests after the first failure. [cacheable]", Category: catTest},
+		&cli.BoolFlag{Name: "fullpath", Usage: "Show full file names in error messages. [cacheable]", Category: catOutput},
 		&cli.StringFlag{Name: "fuzz", Usage: "Run fuzz test matching regexp.", Category: catTest},
 		&cli.StringFlag{Name: "fuzztime", Usage: "Time to spend fuzzing.", Category: catTest},
-		&cli.StringFlag{Name: "list", Usage: "List tests/benchmarks/examples/fuzz tests matching regexp and exit.", Category: catTest},
-		&cli.IntFlag{Name: "parallel", Usage: "Maximum number of tests to run in parallel.", Category: catTest},
-		&cli.StringFlag{Name: "run", Usage: "Run only tests/examples matching regexp.", Category: catTest},
-		&cli.StringFlag{Name: "skip", Usage: "Skip tests matching regexp.", Category: catTest},
-		&cli.BoolFlag{Name: "short", Usage: "Tell long-running tests to shorten run time.", Category: catTest},
-		&cli.StringFlag{Name: "timeout", Usage: "Panic if a test runs longer than t (e.g., 10m).", Category: catTest},
-		&cli.BoolFlag{Name: "v", Usage: "Verbose output: log all tests as they are run.", Category: catOutput},
-		&cli.StringFlag{Name: "json", Usage: "Convert test output to JSON stream.", Category: catOutput},
-		&cli.StringFlag{Name: "coverprofile", Usage: "Write a coverage profile to the named file.", Category: catTest},
+		&cli.StringFlag{Name: "list", Usage: "List tests/benchmarks/examples/fuzz tests matching regexp and exit. [cacheable]", Category: catTest},
+		&cli.IntFlag{Name: "parallel", Usage: "Maximum number of tests to run in parallel. [cacheable]", Category: catTest},
+		&cli.StringFlag{Name: "run", Usage: "Run only tests/examples matching regexp. [cacheable]", Category: catTest},
+		&cli.StringFlag{Name: "skip", Usage: "Skip tests matching regexp. [cacheable]", Category: catTest},
+		&cli.BoolFlag{Name: "short", Usage: "Tell long-running tests to shorten run time. [cacheable]", Category: catTest},
+		&cli.StringFlag{Name: "timeout", Usage: "Panic if a test runs longer than t (e.g., 10m). [cacheable]", Category: catTest},
+		&cli.BoolFlag{Name: "v", Usage: "Verbose output: log all tests as they are run. [cacheable]", Category: catOutput},
+		&cli.BoolFlag{Name: "json", Usage: "Convert test output to JSON stream. [cacheable]", Category: catOutput},
+		&cli.StringFlag{Name: "coverprofile", Usage: "Write a coverage profile to the named file. [cacheable]", Category: catTest},
 		&cli.StringFlag{Name: "blockprofile", Usage: "Write a goroutine blocking profile to the named file.", Category: catDebug},
 		&cli.IntFlag{Name: "blockprofilerate", Usage: "Set blocking profile rate.", Category: catDebug},
 		&cli.StringFlag{Name: "cpuprofile", Usage: "Write a CPU profile to the named file.", Category: catDebug},
@@ -369,7 +470,7 @@ func testBinaryFlags() []cli.Flag {
 		&cli.StringFlag{Name: "mutexprofile", Usage: "Write a mutex contention profile to the named file.", Category: catDebug},
 		&cli.IntFlag{Name: "mutexprofilefraction", Usage: "Set mutex profile fraction.", Category: catDebug},
 		&cli.StringFlag{Name: "trace", Usage: "Write an execution trace to the named file.", Category: catDebug},
-		&cli.StringFlag{Name: "outputdir", Usage: "Write profiles to the specified directory.", Category: catOutput},
+		&cli.StringFlag{Name: "outputdir", Usage: "Write profiles to the specified directory. [cacheable]", Category: catOutput},
 	}
 }
 
@@ -393,14 +494,13 @@ func argPackageVersion() cli.Argument {
 
 func cmdBug() *cli.Command {
 	return &cli.Command{
-		Name:          "bug",
-		Usage:         "start a bug report",
-		Metadata:      map[string]any{"DocURL": docAnchor("Start_a_bug_report")},
-		Description:   "",
-		ArgsUsage:     "",
-		Arguments:     nil,
-		Action:        execGo,
-		ShellComplete: shellComplete,
+		Name:        "bug",
+		Usage:       "start a bug report",
+		Metadata:    map[string]any{"DocURL": docAnchor("Start_a_bug_report")},
+		Description: "",
+		ArgsUsage:   "",
+		Arguments:   nil,
+		Action:      noop,
 	}
 }
 
@@ -413,10 +513,9 @@ func cmdBuild() *cli.Command {
 		Flags: append([]cli.Flag{
 			&cli.StringFlag{Name: "o", Usage: "Output file or directory.", Category: catOutput},
 		}, buildFlags()...),
-		ArgsUsage:     "[packages]",
-		Arguments:     []cli.Argument{argPackage()},
-		Action:        execGo,
-		ShellComplete: shellComplete,
+		ArgsUsage: "[packages]",
+		Arguments: []cli.Argument{argPackage()},
+		Action:    noop,
 	}
 }
 
@@ -433,10 +532,9 @@ func cmdClean() *cli.Command {
 			&cli.BoolFlag{Name: "modcache", Usage: "Remove the entire module download cache.", Category: catCache},
 			&cli.BoolFlag{Name: "fuzzcache", Usage: "Remove all cached fuzzing values.", Category: catCache},
 		}, buildFlags()...),
-		ArgsUsage:     "[packages]",
-		Arguments:     []cli.Argument{argPackage()},
-		Action:        execGo,
-		ShellComplete: shellComplete,
+		ArgsUsage: "[packages]",
+		Arguments: []cli.Argument{argPackage()},
+		Action:    noop,
 	}
 }
 
@@ -458,8 +556,7 @@ func cmdDoc() *cli.Command {
 		Arguments: []cli.Argument{
 			&cli.StringArgs{Name: "query", UsageText: "Package, symbol, method or field", Min: 0, Max: -1},
 		},
-		Action:        execGo,
-		ShellComplete: shellComplete,
+		Action: noop,
 	}
 }
 
@@ -478,8 +575,7 @@ func cmdEnv() *cli.Command {
 		Arguments: []cli.Argument{
 			&cli.StringArgs{Name: "variable", UsageText: "Environment variable names (e.g. GOPATH, GOMOD)", Min: 0, Max: -1},
 		},
-		Action:        execGo,
-		ShellComplete: shellComplete,
+		Action: noop,
 	}
 }
 
@@ -491,10 +587,9 @@ func cmdFix() *cli.Command {
 		Flags: []cli.Flag{
 			&cli.StringFlag{Name: "fix", Usage: "Comma-separated list of fixes to run.", Category: catGeneral},
 		},
-		ArgsUsage:     "[packages]",
-		Arguments:     []cli.Argument{argPackage()},
-		Action:        execGo,
-		ShellComplete: shellComplete,
+		ArgsUsage: "[packages]",
+		Arguments: []cli.Argument{argPackage()},
+		Action:    noop,
 	}
 }
 
@@ -507,10 +602,9 @@ func cmdFmt() *cli.Command {
 			&cli.BoolFlag{Name: "n", Usage: "Print commands that would be executed.", Category: catOutput},
 			&cli.BoolFlag{Name: "x", Usage: "Print commands as they are executed.", Category: catOutput},
 		},
-		ArgsUsage:     "[packages]",
-		Arguments:     []cli.Argument{argPackage()},
-		Action:        execGo,
-		ShellComplete: shellComplete,
+		ArgsUsage: "[packages]",
+		Arguments: []cli.Argument{argPackage()},
+		Action:    noop,
 	}
 }
 
@@ -531,8 +625,7 @@ func cmdGenerate() *cli.Command {
 			argPackage(),
 			&cli.StringArgs{Name: "file.go", UsageText: ""},
 		},
-		Action:        execGo,
-		ShellComplete: shellComplete,
+		Action: noop,
 	}
 }
 
@@ -546,10 +639,9 @@ func cmdGet() *cli.Command {
 			&cli.BoolFlag{Name: "u", Usage: "Update modules providing dependencies.", Category: catModule},
 			&cli.BoolFlag{Name: "tool", Usage: "Add packages as tool dependencies (tool directive).", Category: catModule},
 		}, buildFlags()...),
-		ArgsUsage:     "[package@[version|latest|patch|none]]...",
-		Arguments:     []cli.Argument{argPackageVersion()},
-		Action:        execGo,
-		ShellComplete: shellComplete,
+		ArgsUsage: "[package@[version|latest|patch|none]]...",
+		Arguments: []cli.Argument{argPackageVersion()},
+		Action:    noop,
 	}
 }
 
@@ -559,23 +651,23 @@ func cmdHelp() *cli.Command {
 		Usage:    "show information about command or topic",
 		Metadata: map[string]any{"DocURL": docGoCmd},
 		Commands: []*cli.Command{
-			{Name: "buildconstraint", Usage: "build constraints", Metadata: map[string]any{"DocURL": docGoCmd}, Action: execGo},
-			{Name: "buildmode", Usage: "build modes", Metadata: map[string]any{"DocURL": docGoCmd}, Action: execGo},
-			{Name: "c", Usage: "calling between Go and C", Metadata: map[string]any{"DocURL": docGoCmd}, Action: execGo},
-			{Name: "cache", Usage: "build and test caching", Metadata: map[string]any{"DocURL": docGoCmd}, Action: execGo},
-			{Name: "environment", Usage: "environment variables", Metadata: map[string]any{"DocURL": docGoCmd}, Action: execGo},
-			{Name: "filetype", Usage: "file types", Metadata: map[string]any{"DocURL": docGoCmd}, Action: execGo},
-			{Name: "go.mod", Usage: "the go.mod file", Metadata: map[string]any{"DocURL": docGoCmd}, Action: execGo},
-			{Name: "gopath", Usage: "GOPATH environment variable", Metadata: map[string]any{"DocURL": docGoCmd}, Action: execGo},
-			{Name: "goproxy", Usage: "module proxy protocol", Metadata: map[string]any{"DocURL": docGoCmd}, Action: execGo},
-			{Name: "importpath", Usage: "import path syntax", Metadata: map[string]any{"DocURL": docGoCmd}, Action: execGo},
-			{Name: "modules", Usage: "modules, module versions, and more", Metadata: map[string]any{"DocURL": docGoCmd}, Action: execGo},
-			{Name: "module-auth", Usage: "module authentication using go.sum", Metadata: map[string]any{"DocURL": docGoCmd}, Action: execGo},
-			{Name: "packages", Usage: "package lists and patterns", Metadata: map[string]any{"DocURL": docGoCmd}, Action: execGo},
-			{Name: "private", Usage: "configuration for downloading non-public code", Metadata: map[string]any{"DocURL": docGoCmd}, Action: execGo},
-			{Name: "testflag", Usage: "testing flags", Metadata: map[string]any{"DocURL": docGoCmd}, Action: execGo},
-			{Name: "testfunc", Usage: "testing functions", Metadata: map[string]any{"DocURL": docGoCmd}, Action: execGo},
-			{Name: "vcs", Usage: "controlling version control with GOVCS", Metadata: map[string]any{"DocURL": docGoCmd}, Action: execGo},
+			{Name: "buildconstraint", Usage: "build constraints", Metadata: map[string]any{"DocURL": docGoCmd}, Action: noop},
+			{Name: "buildmode", Usage: "build modes", Metadata: map[string]any{"DocURL": docGoCmd}, Action: noop},
+			{Name: "c", Usage: "calling between Go and C", Metadata: map[string]any{"DocURL": docGoCmd}, Action: noop},
+			{Name: "cache", Usage: "build and test caching", Metadata: map[string]any{"DocURL": docGoCmd}, Action: noop},
+			{Name: "environment", Usage: "environment variables", Metadata: map[string]any{"DocURL": docGoCmd}, Action: noop},
+			{Name: "filetype", Usage: "file types", Metadata: map[string]any{"DocURL": docGoCmd}, Action: noop},
+			{Name: "go.mod", Usage: "the go.mod file", Metadata: map[string]any{"DocURL": docGoCmd}, Action: noop},
+			{Name: "gopath", Usage: "GOPATH environment variable", Metadata: map[string]any{"DocURL": docGoCmd}, Action: noop},
+			{Name: "goproxy", Usage: "module proxy protocol", Metadata: map[string]any{"DocURL": docGoCmd}, Action: noop},
+			{Name: "importpath", Usage: "import path syntax", Metadata: map[string]any{"DocURL": docGoCmd}, Action: noop},
+			{Name: "modules", Usage: "modules, module versions, and more", Metadata: map[string]any{"DocURL": docGoCmd}, Action: noop},
+			{Name: "module-auth", Usage: "module authentication using go.sum", Metadata: map[string]any{"DocURL": docGoCmd}, Action: noop},
+			{Name: "packages", Usage: "package lists and patterns", Metadata: map[string]any{"DocURL": docGoCmd}, Action: noop},
+			{Name: "private", Usage: "configuration for downloading non-public code", Metadata: map[string]any{"DocURL": docGoCmd}, Action: noop},
+			{Name: "testflag", Usage: "testing flags", Metadata: map[string]any{"DocURL": docGoCmd}, Action: noop},
+			{Name: "testfunc", Usage: "testing functions", Metadata: map[string]any{"DocURL": docGoCmd}, Action: noop},
+			{Name: "vcs", Usage: "controlling version control with GOVCS", Metadata: map[string]any{"DocURL": docGoCmd}, Action: noop},
 		},
 		UsageText: "go help [command|topic] [subcommand]...",
 		Arguments: []cli.Argument{
@@ -587,27 +679,25 @@ func cmdHelp() *cli.Command {
 				commands = append(commands, &cli.Command{
 					Name:   cmd.Name,
 					Usage:  cmd.Usage,
-					Action: execGo,
+					Action: noop,
 				})
 			}
 			c.Commands = append(commands, c.Commands...)
 			return ctx, nil
 		},
-		Action:        execGo,
-		ShellComplete: shellComplete,
+		Action: noop,
 	}
 }
 
 func cmdInstall() *cli.Command {
 	return &cli.Command{
-		Name:          "install",
-		Usage:         "compile and install packages and dependencies",
-		Metadata:      map[string]any{"DocURL": docAnchor("Compile_and_install_packages_and_dependencies")},
-		Flags:         buildFlags(),
-		ArgsUsage:     "[package[@version|latest]]...",
-		Arguments:     []cli.Argument{argPackageVersion()},
-		Action:        execGo,
-		ShellComplete: shellComplete,
+		Name:      "install",
+		Usage:     "compile and install packages and dependencies",
+		Metadata:  map[string]any{"DocURL": docAnchor("Compile_and_install_packages_and_dependencies")},
+		Flags:     buildFlags(),
+		ArgsUsage: "[package[@version|latest]]...",
+		Arguments: []cli.Argument{argPackageVersion()},
+		Action:    noop,
 	}
 }
 
@@ -631,8 +721,7 @@ func cmdList() *cli.Command {
 		Arguments: []cli.Argument{
 			&cli.StringArgs{Name: "targets", UsageText: "Packages (or modules when -m)", Min: 0, Max: -1},
 		},
-		Action:        execGo,
-		ShellComplete: shellComplete,
+		Action: noop,
 	}
 }
 
@@ -649,8 +738,7 @@ func cmdRun() *cli.Command {
 			&cli.StringArg{Name: "package", UsageText: "Program package to run"},
 			&cli.StringArgs{Name: "arguments", UsageText: "Arguments passed to the compiled program", Min: 0, Max: -1},
 		},
-		Action:        execGo,
-		ShellComplete: shellComplete,
+		Action: noop,
 	}
 }
 
@@ -663,32 +751,29 @@ func cmdTelemetry() *cli.Command {
 		Arguments: []cli.Argument{
 			&cli.StringArgs{Name: "setting", UsageText: "Optional: off | local | on", Min: 0, Max: 1},
 		},
-		Action:        execGo,
-		ShellComplete: shellComplete,
+		Action: noop,
 	}
 }
 
 func cmdTest() *cli.Command {
 	return &cli.Command{
-		Name:          "test",
-		Usage:         "test packages",
-		Metadata:      map[string]any{"DocURL": docAnchor("Test_packages")},
-		Flags:         append(buildFlags(), testBinaryFlags()...),
-		ArgsUsage:     "[packages] [build/test flags] [test binary flags]",
-		Arguments:     []cli.Argument{argPackage()},
-		Action:        execGo,
-		ShellComplete: shellComplete,
+		Name:      "test",
+		Usage:     "test packages",
+		Metadata:  map[string]any{"DocURL": docAnchor("Test_packages")},
+		Flags:     append(buildFlags(), testBinaryFlags()...),
+		ArgsUsage: "[packages] [build/test flags] [test binary flags]",
+		Arguments: []cli.Argument{argPackage()},
+		Action:    noop,
 	}
 }
 
 func cmdTool() *cli.Command {
 	return &cli.Command{
-		Name:          "tool",
-		Usage:         "run specified go tool",
-		Metadata:      map[string]any{"DocURL": docAnchor("Run_specified_go_tool")},
-		Flags:         toolGlobalFlags(),
-		Action:        execGo,
-		ShellComplete: shellComplete,
+		Name:     "tool",
+		Usage:    "run specified go tool",
+		Metadata: map[string]any{"DocURL": docAnchor("Run_specified_go_tool")},
+		Flags:    toolGlobalFlags(),
+		Action:   noop,
 	}
 }
 
@@ -706,8 +791,7 @@ func cmdVersion() *cli.Command {
 		Arguments: []cli.Argument{
 			&cli.StringArgs{Name: "file", UsageText: "Go binaries to inspect", Min: 0, Max: -1},
 		},
-		Action:        execGo,
-		ShellComplete: shellComplete,
+		Action: noop,
 	}
 }
 
@@ -719,10 +803,9 @@ func cmdVet() *cli.Command {
 		Flags: append([]cli.Flag{
 			&cli.StringFlag{Name: "vettool", Usage: "Use a different analysis tool.", Category: catTool},
 		}, buildFlags()...),
-		ArgsUsage:     "[package]...",
-		Arguments:     []cli.Argument{argPackage()},
-		Action:        execGo,
-		ShellComplete: shellComplete,
+		ArgsUsage: "[package]...",
+		Arguments: []cli.Argument{argPackage()},
+		Action:    noop,
 	}
 }
 
@@ -743,8 +826,7 @@ func cmdMod() *cli.Command {
 			cmdModVerify(),
 			cmdModWhy(),
 		},
-		Action:        execGo,
-		ShellComplete: shellComplete,
+		Action: noop,
 	}
 }
 
@@ -757,10 +839,9 @@ func cmdModDownload() *cli.Command {
 			&cli.BoolFlag{Name: "json", Usage: "Print JSON output.", Category: catOutput},
 			&cli.BoolFlag{Name: "x", Usage: "Print commands as they are executed.", Category: catOutput},
 		},
-		ArgsUsage:     "package[@version]...",
-		Arguments:     []cli.Argument{argPackageVersion()},
-		Action:        execGo,
-		ShellComplete: shellComplete,
+		ArgsUsage: "package[@version]...",
+		Arguments: []cli.Argument{argPackageVersion()},
+		Action:    noop,
 	}
 }
 
@@ -790,18 +871,16 @@ func cmdModEdit() *cli.Command {
 		Arguments: []cli.Argument{
 			&cli.StringArgs{Name: "go.mod", UsageText: "Optional path to a go.mod file (default: ./go.mod)", Min: 0, Max: 1},
 		},
-		Action:        execGo,
-		ShellComplete: shellComplete,
+		Action: noop,
 	}
 }
 
 func cmdModGraph() *cli.Command {
 	return &cli.Command{
-		Name:          "graph",
-		Usage:         "print module requirement graph",
-		Metadata:      map[string]any{"DocURL": docAnchor("Print_module_requirement_graph")},
-		Action:        execGo,
-		ShellComplete: shellComplete,
+		Name:     "graph",
+		Usage:    "print module requirement graph",
+		Metadata: map[string]any{"DocURL": docAnchor("Print_module_requirement_graph")},
+		Action:   noop,
 	}
 }
 
@@ -814,8 +893,7 @@ func cmdModInit() *cli.Command {
 		Arguments: []cli.Argument{
 			&cli.StringArgs{Name: "module-path", UsageText: "Optional module path to initialize", Min: 0, Max: 1},
 		},
-		Action:        execGo,
-		ShellComplete: shellComplete,
+		Action: noop,
 	}
 }
 
@@ -832,8 +910,7 @@ func cmdModTidy() *cli.Command {
 			&cli.StringFlag{Name: "go", Usage: "Set -go=version for tidy.", Category: catModule},
 			&cli.StringFlag{Name: "compat", Usage: "Set -compat=version for tidy.", Category: catModule},
 		},
-		Action:        execGo,
-		ShellComplete: shellComplete,
+		Action: noop,
 	}
 }
 
@@ -847,18 +924,16 @@ func cmdModVendor() *cli.Command {
 			&cli.BoolFlag{Name: "v", Usage: "Print names of vendored modules and packages.", Category: catOutput},
 			&cli.StringFlag{Name: "o", Usage: "Output directory.", Category: catOutput},
 		},
-		Action:        execGo,
-		ShellComplete: shellComplete,
+		Action: noop,
 	}
 }
 
 func cmdModVerify() *cli.Command {
 	return &cli.Command{
-		Name:          "verify",
-		Usage:         "verify dependencies have expected content",
-		Metadata:      map[string]any{"DocURL": docAnchor("Verify_dependencies_have_expected_content")},
-		Action:        execGo,
-		ShellComplete: shellComplete,
+		Name:     "verify",
+		Usage:    "verify dependencies have expected content",
+		Metadata: map[string]any{"DocURL": docAnchor("Verify_dependencies_have_expected_content")},
+		Action:   noop,
 	}
 }
 
@@ -870,10 +945,9 @@ func cmdModWhy() *cli.Command {
 		Flags: []cli.Flag{
 			&cli.BoolFlag{Name: "m", Usage: "Treat arguments as modules.", Category: catModule},
 		},
-		ArgsUsage:     "package...",
-		Arguments:     []cli.Argument{argPackage()},
-		Action:        execGo,
-		ShellComplete: shellComplete,
+		ArgsUsage: "package...",
+		Arguments: []cli.Argument{argPackage()},
+		Action:    noop,
 	}
 }
 
@@ -891,9 +965,8 @@ func cmdWork() *cli.Command {
 			cmdWorkUse(),
 			cmdWorkVendor(),
 		},
-		ArgsUsage:     "<command> [argument]...",
-		Action:        execGo,
-		ShellComplete: shellComplete,
+		ArgsUsage: "<command> [argument]...",
+		Action:    noop,
 	}
 }
 
@@ -917,8 +990,7 @@ func cmdWorkEdit() *cli.Command {
 		Arguments: []cli.Argument{
 			&cli.StringArgs{Name: "go.work", UsageText: "Optional path to a go.work file (default: ./go.work)", Min: 0, Max: 1},
 		},
-		Action:        execGo,
-		ShellComplete: shellComplete,
+		Action: noop,
 	}
 }
 
@@ -931,18 +1003,16 @@ func cmdWorkInit() *cli.Command {
 		Arguments: []cli.Argument{
 			&cli.StringArgs{Name: "moddir", UsageText: "Module directory to add as use directives", Min: 0, Max: -1},
 		},
-		Action:        execGo,
-		ShellComplete: shellComplete,
+		Action: noop,
 	}
 }
 
 func cmdWorkSync() *cli.Command {
 	return &cli.Command{
-		Name:          "sync",
-		Usage:         "sync workspace build list to modules",
-		Metadata:      map[string]any{"DocURL": docAnchor("Sync_workspace_build_list_to_modules")},
-		Action:        execGo,
-		ShellComplete: shellComplete,
+		Name:     "sync",
+		Usage:    "sync workspace build list to modules",
+		Metadata: map[string]any{"DocURL": docAnchor("Sync_workspace_build_list_to_modules")},
+		Action:   noop,
 	}
 }
 
@@ -958,8 +1028,7 @@ func cmdWorkUse() *cli.Command {
 		Arguments: []cli.Argument{
 			&cli.StringArgs{Name: "moddir", UsageText: "Module directory to add to the workspace", Min: 0, Max: -1},
 		},
-		Action:        execGo,
-		ShellComplete: shellComplete,
+		Action: noop,
 	}
 }
 
@@ -973,7 +1042,6 @@ func cmdWorkVendor() *cli.Command {
 			&cli.BoolFlag{Name: "v", Usage: "Print names of vendored modules and packages.", Category: catOutput},
 			&cli.StringFlag{Name: "o", Usage: "Output directory.", Category: catOutput},
 		},
-		Action:        execGo,
-		ShellComplete: shellComplete,
+		Action: noop,
 	}
 }
