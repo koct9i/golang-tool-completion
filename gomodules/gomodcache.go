@@ -23,7 +23,7 @@ type ModCache struct {
 	fs fs.ReadDirFS
 }
 
-func NewModCache() ModCache {
+func GetModCachePath() string {
 	gomodcache := os.Getenv("GOMODCACHE")
 	if gomodcache == "" {
 		gopath := os.Getenv("GOPATH")
@@ -33,8 +33,12 @@ func NewModCache() ModCache {
 		}
 		gomodcache = filepath.Join(gopath, "pkg", "mod")
 	}
+	return gomodcache
+}
+
+func NewModCache() ModCache {
 	return ModCache{
-		fs: os.DirFS(gomodcache).(fs.ReadDirFS),
+		fs: os.DirFS(GetModCachePath()).(fs.ReadDirFS),
 	}
 }
 
@@ -323,8 +327,8 @@ func packageSuffixPrefix(modpath, prefix string) (string, bool) {
 	if prefix == modpath || strings.HasPrefix(modpath, prefix) {
 		return "", true
 	}
-	if strings.HasPrefix(prefix, modpath+"/") {
-		return strings.TrimPrefix(prefix, modpath+"/"), true
+	if after, ok := strings.CutPrefix(prefix, modpath+"/"); ok {
+		return after, true
 	}
 	return "", false
 }
@@ -333,8 +337,8 @@ func packageSuffix(modpath, pkgpath string) (string, bool) {
 	if pkgpath == modpath {
 		return "", true
 	}
-	if strings.HasPrefix(pkgpath, modpath+"/") {
-		return strings.TrimPrefix(pkgpath, modpath+"/"), true
+	if after, ok := strings.CutPrefix(pkgpath, modpath+"/"); ok {
+		return after, true
 	}
 	return "", false
 }
