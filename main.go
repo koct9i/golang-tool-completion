@@ -11,6 +11,9 @@ import (
 	"golang.org/x/sys/unix"
 
 	"github.com/urfave/cli/v3"
+
+	"github.com/koct9i/golang-tool-completion/completion"
+	"github.com/koct9i/golang-tool-completion/gotool"
 )
 
 const (
@@ -102,7 +105,7 @@ func main() {
 		Description: "This wrapper defines commands/flags/args for help/validation/completion, but execution is transparent:\n" +
 			"it always runs the system `go` with the original argv.\n",
 		Metadata: map[string]any{
-			"DocURL": docGoCmd,
+			"DocURL": gotool.DocGoCmd,
 		},
 		Flags: []cli.Flag{
 			&cli.BoolFlag{
@@ -120,29 +123,31 @@ func main() {
 			},
 		},
 		Commands: []*cli.Command{
-			cmdBug(),
-			cmdBuild(),
-			cmdClean(),
-			cmdDoc(),
-			cmdEnv(),
-			cmdFix(),
-			cmdFmt(),
-			cmdGenerate(),
-			cmdGet(),
-			cmdHelp(),
-			cmdInstall(),
-			cmdList(),
-			cmdMod(),
-			cmdWork(),
-			cmdRun(),
-			cmdTelemetry(),
-			cmdTest(),
-			cmdTool(),
-			cmdVersion(),
-			cmdVet(),
-			cmdCompletion(),
+			gotool.Bug(),
+			gotool.Build(),
+			gotool.Clean(),
+			gotool.Doc(),
+			gotool.Env(),
+			gotool.Fix(),
+			gotool.Fmt(),
+			gotool.Generate(),
+			gotool.Get(),
+			gotool.Help(),
+			gotool.Install(),
+			gotool.List(),
+			gotool.Mod(),
+			gotool.Work(),
+			gotool.Run(),
+			gotool.Telemetry(),
+			gotool.Test(),
+			gotool.Tool(),
+			gotool.Version(),
+			gotool.Vet(),
+			completion.Completion(),
 		},
-		Action:         noop,
+		Action: func(ctx context.Context, c *cli.Command) error {
+			return nil
+		},
 		HideHelp:       true,
 		ExitErrHandler: func(ctx context.Context, c *cli.Command, err error) {},
 	}
@@ -173,8 +178,4 @@ func execGo(args []string) error {
 		return fmt.Errorf("recursion detected: found myself instead of go tool")
 	}
 	return unix.Exec(goPath, append([]string{goPath}, args...), os.Environ())
-}
-
-func noop(ctx context.Context, _ *cli.Command) error {
-	return nil
 }

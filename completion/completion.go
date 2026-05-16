@@ -1,4 +1,4 @@
-package main
+package completion
 
 import (
 	"bufio"
@@ -172,7 +172,7 @@ func doCompletion(ctx context.Context, c *cli.Command, shell string, completeArg
 	return cli.Exit("", 0)
 }
 
-func cmdCompletion() *cli.Command {
+func Completion() *cli.Command {
 	var complete bool
 	var install bool
 	var shell string
