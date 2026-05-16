@@ -327,9 +327,12 @@ func cmdHelp() *cli.Command {
 
 func cmdInstall() *cli.Command {
 	return &cli.Command{
-		Name:      "install",
-		Usage:     "compile and install packages and dependencies",
-		Metadata:  map[string]any{"DocURL": docAnchor("Compile_and_install_packages_and_dependencies")},
+		Name:  "install",
+		Usage: "compile and install packages and dependencies",
+		Metadata: map[string]any{
+			"DocURL":            docAnchor("Compile_and_install_packages_and_dependencies"),
+			"CompleteArguments": CompleteModules,
+		},
 		Flags:     buildFlags(),
 		ArgsUsage: "[package[@version|latest]]...",
 		Arguments: []cli.Argument{argPackageVersion()},
