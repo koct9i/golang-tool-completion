@@ -1,3 +1,5 @@
+all: fmt vet test build
+
 build:
 	go build .
 
@@ -7,3 +9,12 @@ install:
 
 lint:
 	golangci-lint run
+
+fmt:
+	go fmt ./...
+
+vet:
+	go vet ./...
+
+test:
+	go test ./...
