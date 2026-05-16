@@ -49,13 +49,13 @@ func TestCompletePackagesFromCache(t *testing.T) {
 		prefix string
 		want   []string
 	}{
-		{"example.com/one/", []string{"example.com/one", "example.com/one/", "example.com/one/pkg", "example.com/one/two/", "example.com/one/two/pkg", "example.com/one/v2", "example.com/one/v2/", "example.com/one/v2/pkgv2"}},
-		{"example.com/one/v", []string{"example.com/one/v2", "example.com/one/v2/", "example.com/one/v2/pkgv2"}},
-		{"example.com/one/p", []string{"example.com/one/pkg"}},
-		{"example.com/one/t", []string{"example.com/one/two/", "example.com/one/two/pkg"}},
-		{"example.com/one/two/", []string{"example.com/one/two/", "example.com/one/two/pkg"}},
-		{"example.com/A", []string{"example.com/ABC/", "example.com/ABC/some"}},
-		{"example.com/ABC/", []string{"example.com/ABC/some"}},
+		{"example.com/one/", []string{"example.com/one", "example.com/one/", "example.com/one/pkg", "example.com/one/pkg/", "example.com/one/two", "example.com/one/two/", "example.com/one/v2", "example.com/one/v2/"}},
+		{"example.com/one/v", []string{"example.com/one/v2", "example.com/one/v2/"}},
+		{"example.com/one/p", []string{"example.com/one/pkg", "example.com/one/pkg/"}},
+		{"example.com/one/t", []string{"example.com/one/two", "example.com/one/two/"}},
+		{"example.com/one/two/", []string{"example.com/one/two", "example.com/one/two/", "example.com/one/two/pkg", "example.com/one/two/pkg/"}},
+		{"example.com/A", []string{"example.com/ABC/"}},
+		{"example.com/ABC/", []string{"example.com/ABC/some", "example.com/ABC/some/"}},
 	} {
 		t.Run(tt.prefix, func(t *testing.T) {
 			got := keys(cache.CompletePackages(tt.prefix))
