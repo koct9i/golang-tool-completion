@@ -137,11 +137,7 @@ func (m ModCache) completePackageModulePathDir(result map[string]string, escaped
 }
 
 func (m ModCache) completePackagePaths(result map[string]string, prefix string) {
-	escaped, ok := escapePathPrefix(prefix)
-	if !ok {
-		return
-	}
-	m.walkModuleDirs(func(mod module.Version, dir string) bool {
+	m.readExtractedModuleDirs(prefix, func(mod module.Version, dir string) bool {
 		if mod.Path == "" {
 			return true
 		}
@@ -152,81 +148,58 @@ func (m ModCache) completePackagePaths(result map[string]string, prefix string) 
 		m.completePackagesInModule(result, mod.Path, dir, suffixPrefix)
 		return true
 	})
+	m.completeExtractedModuleDirs(result, prefix)
+}
 
-	// A package prefix may include more path elements than the module path. In that
-	// case, module-directory discovery cannot narrow the search before it knows the
-	// module boundary. Use the escaped package prefix to find already-extracted
-	// module directories whose names begin at the same path location, including
-	// semantic import version suffixes such as /v2.
+func (m ModCache) completeExtractedModuleDirs(result map[string]string, prefix string) {
+	escaped, ok := escapePathPrefix(prefix)
+	if !ok {
+		return
+	}
 	dir, namePrefix := path.Split(escaped)
 	entries, _ := m.fs.ReadDir(path.Dir(escaped + "x"))
 	for _, entry := range entries {
-		name := entry.Name()
-		base, ver, hasVersion := strings.Cut(name, "@")
-		if !entry.IsDir() || !hasVersion || !strings.HasPrefix(base+"@"+ver, namePrefix) {
-			continue
-		}
-		modpath, err := module.UnescapePath(dir + base)
-		if err != nil {
+		base, ver, hasVersion := strings.Cut(entry.Name(), "@")
+		if !entry.IsDir() || !hasVersion || !strings.HasPrefix(base, namePrefix) {
 			continue
 		}
 		if _, err := module.UnescapeVersion(ver); err != nil {
 			continue
 		}
-		m.completePackagesInModule(result, modpath, path.Join(dir, name), "")
+		suggest, err := module.UnescapePath(dir + base)
+		if err != nil {
+			continue
+		}
+		result[suggest] = ""
+		result[suggest+"/"] = ""
 	}
 }
 
 func (m ModCache) completePackagesInModule(result map[string]string, modpath, dir, prefix string) {
 	parent, namePrefix := path.Split(prefix)
 	start := path.Join(dir, parent)
-	fs.WalkDir(m.fs, start, func(pkgDir string, d fs.DirEntry, err error) error {
-		if err != nil {
-			return nil
+	entries, err := m.fs.ReadDir(start)
+	if err != nil {
+		return
+	}
+
+	pkgpath := modpath
+	if suffix := strings.TrimSuffix(parent, "/"); suffix != "" {
+		pkgpath += "/" + suffix
+	}
+	if strings.HasPrefix(path.Base(pkgpath), namePrefix) {
+		result[pkgpath] = ""
+	}
+
+	for _, entry := range entries {
+		name := entry.Name()
+		if !entry.IsDir() || ignoredPackageDir(name) || !strings.HasPrefix(name, namePrefix) {
+			continue
 		}
-		if !d.IsDir() {
-			return nil
-		}
-		if pkgDir != start && ignoredPackageDir(d.Name()) {
-			return fs.SkipDir
-		}
-		if parent == "" && pkgDir != start {
-			rel := strings.TrimPrefix(strings.TrimPrefix(pkgDir, start), "/")
-			first, _, _ := strings.Cut(rel, "/")
-			if !strings.HasPrefix(first, namePrefix) {
-				return fs.SkipDir
-			}
-		}
-		entries, err := m.fs.ReadDir(pkgDir)
-		if err != nil {
-			return nil
-		}
-		hasPackage := false
-		hasSubdir := false
-		for _, entry := range entries {
-			if entry.IsDir() {
-				if !ignoredPackageDir(entry.Name()) {
-					hasSubdir = true
-				}
-			} else if strings.HasSuffix(entry.Name(), ".go") {
-				hasPackage = true
-			}
-		}
-		pkgpath := modpath
-		if suffix := strings.TrimPrefix(strings.TrimPrefix(pkgDir, dir), "/"); suffix != "" {
-			pkgpath = modpath + "/" + suffix
-		}
-		if !strings.HasPrefix(path.Base(pkgpath), namePrefix) && pkgDir == start {
-			return nil
-		}
-		if hasPackage {
-			result[pkgpath] = ""
-		}
-		if hasSubdir {
-			result[pkgpath+"/"] = ""
-		}
-		return nil
-	})
+		suggest := modpath + "/" + path.Join(parent, name)
+		result[suggest] = ""
+		result[suggest+"/"] = ""
+	}
 }
 
 func (m ModCache) completePackageVersions(result map[string]string, pkgpath, prefix string) {
@@ -235,12 +208,12 @@ func (m ModCache) completePackageVersions(result map[string]string, pkgpath, pre
 			result[pkgpath+"@"+v] = ""
 		}
 	}
-	m.walkModuleDirs(func(mod module.Version, dir string) bool {
+	m.readExtractedModuleDirs(pkgpath, func(mod module.Version, dir string) bool {
 		if mod.Path == "" {
 			return true
 		}
 		suffix, ok := packageSuffix(mod.Path, pkgpath)
-		if !ok || !m.dirHasPackage(path.Join(dir, suffix)) {
+		if !ok || !m.dirExists(path.Join(dir, suffix)) {
 			return true
 		}
 		m.completeVersions(result, pkgpath, mod.Path, prefix)
@@ -293,34 +266,30 @@ func (m ModCache) completeVersions(result map[string]string, suggestPath, modpat
 	}
 }
 
-func (m ModCache) walkModuleDirs(fn func(module.Version, string) bool) {
-	fs.WalkDir(m.fs, ".", func(name string, d fs.DirEntry, err error) error {
-		if err != nil || !d.IsDir() {
-			return nil
+func (m ModCache) readExtractedModuleDirs(pkgpath string, fn func(module.Version, string) bool) {
+	for modpath := strings.Trim(pkgpath, "/"); modpath != "." && modpath != "/"; modpath = path.Dir(modpath) {
+		escaped, err := module.EscapePath(modpath)
+		if err == nil {
+			dir, base := path.Split(escaped)
+			entries, _ := m.fs.ReadDir(path.Dir(escaped + "x"))
+			for _, entry := range entries {
+				name, ver, ok := strings.Cut(entry.Name(), "@")
+				if !entry.IsDir() || !ok || name != base {
+					continue
+				}
+				version, err := module.UnescapeVersion(ver)
+				if err != nil {
+					continue
+				}
+				if !fn(module.Version{Path: modpath, Version: version}, path.Join(dir, entry.Name())) {
+					return
+				}
+			}
 		}
-		if name == "." {
-			return nil
+		if !strings.Contains(modpath, "/") {
+			return
 		}
-		if name == "cache" {
-			return fs.SkipDir
-		}
-		base, ver, ok := strings.Cut(path.Base(name), "@")
-		if !ok {
-			return nil
-		}
-		modpath, err := module.UnescapePath(path.Join(path.Dir(name), base))
-		if err != nil {
-			return fs.SkipDir
-		}
-		version, err := module.UnescapeVersion(ver)
-		if err != nil {
-			return fs.SkipDir
-		}
-		if !fn(module.Version{Path: modpath, Version: version}, name) {
-			return fs.SkipAll
-		}
-		return fs.SkipDir
-	})
+	}
 }
 
 func packageSuffixPrefix(modpath, prefix string) (string, bool) {
@@ -343,17 +312,9 @@ func packageSuffix(modpath, pkgpath string) (string, bool) {
 	return "", false
 }
 
-func (m ModCache) dirHasPackage(dir string) bool {
-	entries, err := m.fs.ReadDir(dir)
-	if err != nil {
-		return false
-	}
-	for _, entry := range entries {
-		if !entry.IsDir() && strings.HasSuffix(entry.Name(), ".go") {
-			return true
-		}
-	}
-	return false
+func (m ModCache) dirExists(dir string) bool {
+	_, err := m.fs.ReadDir(dir)
+	return err == nil
 }
 
 func ignoredPackageDir(name string) bool {
