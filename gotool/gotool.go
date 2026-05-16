@@ -30,6 +30,13 @@ func docAnchor(h string) string {
 	return DocGoCmd + "#hdr-" + strings.ReplaceAll(h, " ", "_")
 }
 
+func packageMetadata(anchor string) map[string]any {
+	return map[string]any{
+		"DocURL":            anchor,
+		"CompleteArguments": gomodules.CompletePackages,
+	}
+}
+
 func buildFlags() []cli.Flag {
 	return []cli.Flag{
 		&cli.StringFlag{Name: "C", Usage: "Change to dir before running the command (must be first flag).", Category: catGeneral},
@@ -143,7 +150,7 @@ func Build() *cli.Command {
 	return &cli.Command{
 		Name:        "build",
 		Usage:       "compile packages and dependencies",
-		Metadata:    map[string]any{"DocURL": docAnchor("Compile_packages_and_dependencies")},
+		Metadata:    packageMetadata(docAnchor("Compile_packages_and_dependencies")),
 		Description: "",
 		Flags: append([]cli.Flag{
 			&cli.StringFlag{Name: "o", Usage: "Output file or directory.", Category: catOutput},
@@ -158,7 +165,7 @@ func Clean() *cli.Command {
 	return &cli.Command{
 		Name:     "clean",
 		Usage:    "remove object files and cached files",
-		Metadata: map[string]any{"DocURL": docAnchor("Remove_object_files_and_cached_files")},
+		Metadata: packageMetadata(docAnchor("Remove_object_files_and_cached_files")),
 		Flags: append([]cli.Flag{
 			&cli.BoolFlag{Name: "i", Usage: "Remove the installed packages for the named targets.", Category: catCache},
 			&cli.BoolFlag{Name: "r", Usage: "Remove obj and installed files recursively for args and deps.", Category: catCache},
@@ -218,7 +225,7 @@ func Fix() *cli.Command {
 	return &cli.Command{
 		Name:     "fix",
 		Usage:    "update packages to use new APIs",
-		Metadata: map[string]any{"DocURL": docAnchor("Update_packages_to_use_new_APIs")},
+		Metadata: packageMetadata(docAnchor("Update_packages_to_use_new_APIs")),
 		Flags: []cli.Flag{
 			&cli.StringFlag{Name: "fix", Usage: "Comma-separated list of fixes to run.", Category: catGeneral},
 		},
@@ -232,7 +239,7 @@ func Fmt() *cli.Command {
 	return &cli.Command{
 		Name:     "fmt",
 		Usage:    "gofmt (reformat) package sources",
-		Metadata: map[string]any{"DocURL": docAnchor("Gofmt__reformat__package_sources")},
+		Metadata: packageMetadata(docAnchor("Gofmt__reformat__package_sources")),
 		Flags: []cli.Flag{
 			&cli.BoolFlag{Name: "n", Usage: "Print commands that would be executed.", Category: catOutput},
 			&cli.BoolFlag{Name: "x", Usage: "Print commands as they are executed.", Category: catOutput},
@@ -247,7 +254,7 @@ func Generate() *cli.Command {
 	return &cli.Command{
 		Name:     "generate",
 		Usage:    "generate Go files by processing source",
-		Metadata: map[string]any{"DocURL": docAnchor("Generate_Go_files_by_processing_source")},
+		Metadata: packageMetadata(docAnchor("Generate_Go_files_by_processing_source")),
 		Flags: []cli.Flag{
 			&cli.StringFlag{Name: "run", Usage: "Run only generators matching the regexp.", Category: catGeneral},
 			&cli.BoolFlag{Name: "n", Usage: "Print commands but do not run them.", Category: catOutput},
@@ -270,7 +277,7 @@ func Get() *cli.Command {
 		Usage: "add dependencies to current module and install them",
 		Metadata: map[string]any{
 			"DocURL":            docAnchor("Add_dependencies_to_current_module_and_install_them"),
-			"CompleteArguments": gomodules.CompleteModules,
+			"CompleteArguments": gomodules.CompletePackages,
 		},
 		Flags: append([]cli.Flag{
 			&cli.BoolFlag{Name: "t", Usage: "Also download test dependencies.", Category: catModule},
@@ -333,7 +340,7 @@ func Install() *cli.Command {
 		Usage: "compile and install packages and dependencies",
 		Metadata: map[string]any{
 			"DocURL":            docAnchor("Compile_and_install_packages_and_dependencies"),
-			"CompleteArguments": gomodules.CompleteModules,
+			"CompleteArguments": gomodules.CompletePackages,
 		},
 		Flags:     buildFlags(),
 		ArgsUsage: "[package[@version|latest]]...",
@@ -346,7 +353,7 @@ func List() *cli.Command {
 	return &cli.Command{
 		Name:     "list",
 		Usage:    "list packages or modules",
-		Metadata: map[string]any{"DocURL": docAnchor("List_packages_or_modules")},
+		Metadata: packageMetadata(docAnchor("List_packages_or_modules")),
 		Flags: append([]cli.Flag{
 			&cli.BoolFlag{Name: "deps", Usage: "List dependencies of each package.", Category: catGeneral},
 			&cli.StringFlag{Name: "f", Usage: "Print using a custom format.", Category: catOutput},
@@ -372,7 +379,7 @@ func Run() *cli.Command {
 		Usage: "compile and run Go program",
 		Metadata: map[string]any{
 			"DocURL":            docAnchor("Compile_and_run_Go_program"),
-			"CompleteArguments": gomodules.CompleteModules,
+			"CompleteArguments": gomodules.CompletePackages,
 		},
 		Flags: append([]cli.Flag{
 			&cli.StringFlag{Name: "exec", Usage: "Run the generated binary under xprog (like 'time').", Category: catTool},
@@ -403,7 +410,7 @@ func Test() *cli.Command {
 	return &cli.Command{
 		Name:      "test",
 		Usage:     "test packages",
-		Metadata:  map[string]any{"DocURL": docAnchor("Test_packages")},
+		Metadata:  packageMetadata(docAnchor("Test_packages")),
 		Flags:     append(buildFlags(), testBinaryFlags()...),
 		ArgsUsage: "[packages] [build/test flags] [test binary flags]",
 		Arguments: []cli.Argument{argPackage()},
@@ -443,7 +450,7 @@ func Vet() *cli.Command {
 	return &cli.Command{
 		Name:     "vet",
 		Usage:    "report likely mistakes in packages",
-		Metadata: map[string]any{"DocURL": docAnchor("Report_likely_mistakes_in_packages")},
+		Metadata: packageMetadata(docAnchor("Report_likely_mistakes_in_packages")),
 		Flags: append([]cli.Flag{
 			&cli.StringFlag{Name: "vettool", Usage: "Use a different analysis tool.", Category: catTool},
 		}, buildFlags()...),
@@ -588,7 +595,7 @@ func ModWhy() *cli.Command {
 	return &cli.Command{
 		Name:     "why",
 		Usage:    "explain why packages or modules are needed",
-		Metadata: map[string]any{"DocURL": docAnchor("Explain_why_packages_or_modules_are_needed")},
+		Metadata: packageMetadata(docAnchor("Explain_why_packages_or_modules_are_needed")),
 		Flags: []cli.Flag{
 			&cli.BoolFlag{Name: "m", Usage: "Treat arguments as modules.", Category: catModule},
 		},
