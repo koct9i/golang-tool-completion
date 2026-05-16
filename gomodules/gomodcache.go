@@ -11,7 +11,15 @@ import (
 	"golang.org/x/mod/module"
 )
 
-func GoModCacheFS() fs.ReadDirFS {
+func CompleteModules(prefix string) map[string]string {
+	return NewModCache().CompleteModules(prefix)
+}
+
+type ModCache struct {
+	fs fs.ReadDirFS
+}
+
+func NewModCache() ModCache {
 	gomodcache := os.Getenv("GOMODCACHE")
 	if gomodcache == "" {
 		gopath := os.Getenv("GOPATH")
@@ -21,75 +29,35 @@ func GoModCacheFS() fs.ReadDirFS {
 		}
 		gomodcache = filepath.Join(gopath, "pkg", "mod")
 	}
-	return os.DirFS(gomodcache).(fs.ReadDirFS)
+	return ModCache{
+		fs: os.DirFS(gomodcache).(fs.ReadDirFS),
+	}
 }
 
-func CompleteModules(prefix string) map[string]string {
+func (m ModCache) CompleteModules(prefix string) map[string]string {
 	modpath, version, hasVersion := strings.Cut(prefix, "@")
 	result := map[string]string{}
 	if hasVersion {
-		completeModuleVersions(result, modpath, version)
+		m.completeModuleVersions(result, modpath, version)
 	} else {
-		completeModulePaths(result, modpath)
+		m.completeModulePaths(result, modpath)
 	}
 	return result
 }
 
-func completeModulePaths(result map[string]string, prefix string) {
+func (m ModCache) completeModulePaths(result map[string]string, prefix string) {
 	escaped, ok := escapePathPrefix(prefix)
 	if !ok {
 		return
 	}
-	completePathDir(result, "", escaped, false)
-	completePathDir(result, "cache/download", escaped, true)
+	m.completePathDir(result, escaped, false)
+	m.completePathDir(result, path.Join("cache/download", escaped), true)
 }
 
-func completeModuleVersions(result map[string]string, modpath, prefix string) {
-	for _, v := range []string{"latest", "patch", "none"} {
-		if strings.HasPrefix(v, prefix) {
-			result[modpath+"@"+v] = ""
-		}
-	}
-
-	escaped, ok := escapePathPrefix(modpath + "@" + prefix)
-	if ok {
-		dir, namePrefix := path.Split(escaped)
-		for _, entry := range readDir(path.Dir(dir + "x")) {
-			name, v, found := strings.Cut(entry.Name(), "@")
-			if !entry.IsDir() || !found || !strings.HasPrefix(name+"@"+v, namePrefix) {
-				continue
-			}
-			if v, err := module.UnescapeVersion(v); err == nil {
-				result[modpath+"@"+v] = ""
-			}
-		}
-	}
-
-	escapedMod, err := module.EscapePath(modpath)
-	if err != nil {
-		return
-	}
-	versionDir := path.Join("cache/download", escapedMod, "@v")
-	if data, err := fs.ReadFile(GoModCacheFS(), path.Join(versionDir, "list")); err == nil {
-		scan := bufio.NewScanner(strings.NewReader(string(data)))
-		for scan.Scan() {
-			if v := scan.Text(); strings.HasPrefix(v, prefix) {
-				result[modpath+"@"+v] = ""
-			}
-		}
-	}
-	for _, entry := range readDir(versionDir) {
-		if v, ok := strings.CutSuffix(entry.Name(), ".info"); ok && strings.HasPrefix(v, prefix) {
-			if v, err := module.UnescapeVersion(v); err == nil {
-				result[modpath+"@"+v] = ""
-			}
-		}
-	}
-}
-
-func completePathDir(result map[string]string, root, escaped string, download bool) {
+func (m ModCache) completePathDir(result map[string]string, escaped string, download bool) {
 	dir, namePrefix := path.Split(escaped)
-	for _, entry := range readDir(path.Join(root, path.Dir(escaped+"x"))) {
+	entries, _ := m.fs.ReadDir(path.Dir(escaped+"x"))
+	for _, entry := range entries {
 		name := entry.Name()
 		if !entry.IsDir() || name == "@v" || !strings.HasPrefix(name, namePrefix) {
 			continue
@@ -105,10 +73,55 @@ func completePathDir(result map[string]string, root, escaped string, download bo
 			}
 			continue
 		}
-		if download && hasList(path.Join(root, dir, name, "@v", "list")) {
-			result[suggest+"@"] = ""
-		} else {
+		if !download {
 			result[suggest+"/"] = ""
+		} else if _, err := fs.Stat(m.fs, path.Join(dir, name, "@v", "list")); err == nil {
+			result[suggest+"@"] = ""
+		}
+	}
+}
+
+func (m ModCache) completeModuleVersions(result map[string]string, modpath, prefix string) {
+	for _, v := range []string{"latest", "patch", "none"} {
+		if strings.HasPrefix(v, prefix) {
+			result[modpath+"@"+v] = ""
+		}
+	}
+
+	escaped, ok := escapePathPrefix(modpath + "@" + prefix)
+	if ok {
+		dir, namePrefix := path.Split(escaped)
+		entries, _ := m.fs.ReadDir(path.Dir(dir + "x"))
+		for _, entry := range entries {
+			name, v, found := strings.Cut(entry.Name(), "@")
+			if !entry.IsDir() || !found || !strings.HasPrefix(name+"@"+v, namePrefix) {
+				continue
+			}
+			if v, err := module.UnescapeVersion(v); err == nil {
+				result[modpath+"@"+v] = ""
+			}
+		}
+	}
+
+	escapedMod, err := module.EscapePath(modpath)
+	if err != nil {
+		return
+	}
+	versionDir := path.Join("cache/download", escapedMod, "@v")
+	if data, err := fs.ReadFile(m.fs, path.Join(versionDir, "list")); err == nil {
+		scan := bufio.NewScanner(strings.NewReader(string(data)))
+		for scan.Scan() {
+			if v := scan.Text(); strings.HasPrefix(v, prefix) {
+				result[modpath+"@"+v] = ""
+			}
+		}
+	}
+	entries, _ := m.fs.ReadDir(versionDir)
+	for _, entry := range entries {
+		if v, ok := strings.CutSuffix(entry.Name(), ".info"); ok && strings.HasPrefix(v, prefix) {
+			if v, err := module.UnescapeVersion(v); err == nil {
+				result[modpath+"@"+v] = ""
+			}
 		}
 	}
 }
@@ -119,14 +132,4 @@ func escapePathPrefix(prefix string) (string, bool) {
 		return "", false
 	}
 	return escaped[4 : len(escaped)-1], true
-}
-
-func readDir(name string) []fs.DirEntry {
-	entries, _ := GoModCacheFS().ReadDir(name)
-	return entries
-}
-
-func hasList(name string) bool {
-	_, err := fs.Stat(GoModCacheFS(), name)
-	return err == nil
 }
