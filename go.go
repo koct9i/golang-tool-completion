@@ -474,9 +474,12 @@ func cmdMod() *cli.Command {
 
 func cmdModDownload() *cli.Command {
 	return &cli.Command{
-		Name:     "download",
-		Usage:    "download modules to local cache",
-		Metadata: map[string]any{"DocURL": docAnchor("Download_modules_to_local_cache")},
+		Name:  "download",
+		Usage: "download modules to local cache",
+		Metadata: map[string]any{
+			"DocURL":            docAnchor("Download_modules_to_local_cache"),
+			"CompleteArguments": CompleteModules,
+		},
 		Flags: []cli.Flag{
 			&cli.BoolFlag{Name: "json", Usage: "Print JSON output.", Category: catOutput},
 			&cli.BoolFlag{Name: "x", Usage: "Print commands as they are executed.", Category: catOutput},
