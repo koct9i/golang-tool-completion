@@ -7,7 +7,7 @@ import (
 	"testing"
 )
 
-//go:embed testdata/module-cache testdata/package-cache
+//go:embed testdata/module-cache
 var embeddedTestdata embed.FS
 
 func TestCompleteModulesFromCache(t *testing.T) {
@@ -17,11 +17,20 @@ func TestCompleteModulesFromCache(t *testing.T) {
 		prefix string
 		want   []string
 	}{
-		{"example.c", []string{"example.com/"}},
-		{"example.com/o", []string{"example.com/one@"}},
+		{"", []string{"example.com/"}},
+		{"e", []string{"example.com/"}},
+		{"example.com", []string{"example.com/"}},
+		{"example.com/", []string{"example.com/ABC/", "example.com/one/", "example.com/one@"}},
+		{"example.com/ABC/", []string{"example.com/ABC/some@"}},
+		{"example.com/o", []string{"example.com/one/", "example.com/one@"}},
+		{"example.com/one/", []string{"example.com/one/two@", "example.com/one/v2@", "example.com/one@"}},
+		{"example.com/one@v", []string{"example.com/one@v1.0.0", "example.com/one@v1.1.0", "example.com/one@v1.2.0"}},
+		{"example.com/one@l", []string{"example.com/one@latest"}},
+		{"example.com/one@p", []string{"example.com/one@patch"}},
 		{"example.com/one/t", []string{"example.com/one/two@"}},
-		{"example.com/one@v1.", []string{"example.com/one@v1.0.0", "example.com/one@v1.2.0", "example.com/one@v1.3.0"}},
-		{"example.com/one@lat", []string{"example.com/one@latest"}},
+		{"example.com/one/two@v", []string{"example.com/one/two@v1.0.0"}},
+		{"example.com/one/v", []string{"example.com/one/v2@"}},
+		{"example.com/one/v2@v", []string{"example.com/one/v2@v2.0.0", "example.com/one/v2@v2.1.0"}},
 	} {
 		t.Run(tt.prefix, func(t *testing.T) {
 			got := keys(cache.CompleteModules(tt.prefix))
@@ -34,17 +43,19 @@ func TestCompleteModulesFromCache(t *testing.T) {
 }
 
 func TestCompletePackagesFromCache(t *testing.T) {
-	cache := testModCache(t, "testdata/package-cache")
+	cache := testModCache(t, "testdata/module-cache")
 
 	for _, tt := range []struct {
 		prefix string
 		want   []string
 	}{
-		{"example.com/one/cmd/t", []string{"example.com/one/cmd/tool"}},
-		{"example.com/one/v", []string{"example.com/one/v2", "example.com/one/v2/", "example.com/one/v2/sub"}},
-		{"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/com", []string{"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute"}},
-		{"example.com/one/cmd/tool@v1.", []string{"example.com/one/cmd/tool@v1.2.0", "example.com/one/cmd/tool@v1.3.0"}},
-		{"example.com/one/v2/sub@v2.", []string{"example.com/one/v2/sub@v2.0.0", "example.com/one/v2/sub@v2.1.0"}},
+		{"example.com/one/", []string{"example.com/one", "example.com/one/", "example.com/one/pkg", "example.com/one/two/", "example.com/one/two/pkg", "example.com/one/v2", "example.com/one/v2/", "example.com/one/v2/pkgv2"}},
+		{"example.com/one/v", []string{"example.com/one/v2", "example.com/one/v2/", "example.com/one/v2/pkgv2"}},
+		{"example.com/one/p", []string{"example.com/one/pkg"}},
+		{"example.com/one/t", []string{"example.com/one/two/", "example.com/one/two/pkg"}},
+		{"example.com/one/two/", []string{"example.com/one/two/", "example.com/one/two/pkg"}},
+		{"example.com/A", []string{"example.com/ABC/", "example.com/ABC/some"}},
+		{"example.com/ABC/", []string{"example.com/ABC/some"}},
 	} {
 		t.Run(tt.prefix, func(t *testing.T) {
 			got := keys(cache.CompletePackages(tt.prefix))

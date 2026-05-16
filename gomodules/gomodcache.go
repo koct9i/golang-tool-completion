@@ -46,7 +46,7 @@ func (m ModCache) CompleteModules(prefix string) map[string]string {
 	modpath, version, hasVersion := strings.Cut(prefix, "@")
 	result := map[string]string{}
 	if hasVersion {
-		m.completeModuleVersions(result, modpath, version)
+		m.completeVersions(result, modpath, modpath, version)
 	} else {
 		m.completeModulePaths(result, modpath)
 	}
@@ -358,10 +358,6 @@ func (m ModCache) dirHasPackage(dir string) bool {
 
 func ignoredPackageDir(name string) bool {
 	return name == "vendor" || name == "testdata" || strings.HasPrefix(name, ".") || strings.HasPrefix(name, "_")
-}
-
-func (m ModCache) completeModuleVersions(result map[string]string, modpath, prefix string) {
-	m.completeVersions(result, modpath, modpath, prefix)
 }
 
 func escapePathPrefix(prefix string) (string, bool) {
