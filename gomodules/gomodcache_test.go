@@ -78,7 +78,10 @@ func testModCache(t *testing.T, dir string) ModCache {
 	if !ok {
 		t.Fatal("embedded module cache does not implement fs.ReadDirFS")
 	}
-	return ModCache{fs: readDirFS}
+	return ModCache{
+		fs:  readDirFS,
+		log: t.Logf,
+	}
 }
 
 func keys(m map[string]string) []string {

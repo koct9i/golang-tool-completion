@@ -24,62 +24,23 @@ func CompletePackages(prefix string) map[string]string {
 // See the Go module cache reference for the canonical cache description:
 // https://go.dev/ref/mod#module-cache
 //
-// The parts used by completion can be described as:
-//
 //	<cache>                ::= <extract-tree> | "cache/download/" <download-tree>
 //	<extract-tree>         ::= <escaped-module-path> "@" <escaped-version> "/" ...
 //	<download-tree>        ::= <escaped-module-path> "/@v/" <version-file>
 //	<version-file>         ::= "list" | <escaped-version> ".info" | ...
-//	<package-dir>          ::= <escaped-module-path> "@" <escaped-version>
-//	                           ["/" <package-suffix>]
+//	<package-dir>          ::= <escaped-module-path> "@" <escaped-version> ["/" <package-suffix>]
 //	<package-suffix>       ::= <path-component> ["/" <package-suffix>]
 //
 // Module and version completion use both cache trees:
 //
 //   - Extracted module directories live directly under the cache root as
-//     escaped module paths suffixed with @version. For example, module
-//     example.com/one at v1.0.0 is extracted as example.com/one@v1.0.0, and
-//     module example.com/one/v2 at v2.0.0 is extracted as
-//     example.com/one/v2@v2.0.0. Upper-case letters in module paths are escaped
-//     with exclamation marks (ABC becomes !a!b!c). These directories provide
-//     already-extracted module paths, installed versions, and package contents.
+//     escaped module paths suffixed with @version.
 //
 //   - Download metadata lives under cache/download/<escaped-module>/@v. The
-//     @v/list file contains newline-separated versions known to the go command;
-//     individual <version>.info files may also exist for cached versions. Parent
-//     directories below cache/download mirror escaped module path components, so
-//     they provide module path prefixes and versions even when the module has not
-//     been extracted.
-//
-// Package completion uses extracted module directories only; download metadata
-// records module versions, not the packages contained in a module. A package path
-// is mapped back to a module path by trying every ancestor of the package path as
-// a module candidate, from the longest/deepest path to the shortest/shallowest
-// path. There is no assumption that a module path has exactly two path elements:
-// for cloud.google.com/go/storage/internal, candidates are checked in this order:
-//
-//	cloud.google.com/go/storage/internal
-//	cloud.google.com/go/storage
-//	cloud.google.com/go
-//	cloud.google.com
-//
-// The longest/deepest candidate has the highest priority because it is the most
-// specific module path. Completion still keeps scanning shallower candidates so
-// it can return suggestions from every cached module that could contain the
-// package path.
-//
-// A candidate is treated as a cached module when its escaped parent directory
-// contains an extracted <module-base>@<version> entry. For example, if
-// example.com/one@v1.0.0 exists while completing example.com/one/pkg, then
-// example.com/one is the module path and pkg is the package suffix inside that
-// extracted module directory. Completion reads the package suffix's parent
-// directory in the extracted module and suggests matching package directories,
-// skipping vendor, testdata, dot-prefixed, and underscore-prefixed directories.
-// Package version completion uses the same package-to-module mapping, verifies
-// that the package suffix exists in the extracted module, and then reuses that
-// module's version metadata.
+//     @v/list file contains newline-separated versions known to the go command.
 type ModCache struct {
-	fs fs.ReadDirFS
+	fs  fs.ReadDirFS
+	log func(format string, args ...any)
 }
 
 func GetModCachePath() string {
@@ -97,231 +58,151 @@ func GetModCachePath() string {
 
 func NewModCache() ModCache {
 	return ModCache{
-		fs: os.DirFS(GetModCachePath()).(fs.ReadDirFS),
+		fs:  os.DirFS(GetModCachePath()).(fs.ReadDirFS),
+		log: func(format string, args ...any) {},
 	}
 }
 
 func (m ModCache) CompleteModules(prefix string) map[string]string {
-	modpath, version, hasVersion := strings.Cut(prefix, "@")
+	module, version, hasVersion := strings.Cut(prefix, "@")
+	escaped, err := escapePath(module)
+	if err != nil {
+		return nil
+	}
 	result := map[string]string{}
 	if hasVersion {
-		m.completeVersions(result, modpath, modpath, version)
+		m.completeVersion(result, module, version, escaped)
 	} else {
-		m.completeModulePaths(result, modpath)
+		m.completeModule(result, module, escaped)
 	}
 	return result
 }
 
 func (m ModCache) CompletePackages(prefix string) map[string]string {
-	prefix, version, hasVersion := strings.Cut(prefix, "@")
+	pkg, version, hasVersion := strings.Cut(prefix, "@")
+	escaped, err := escapePath(pkg)
+	if err != nil {
+		return nil
+	}
 	result := map[string]string{}
-	if hasVersion {
-		m.completePackageVersions(result, prefix, version)
-	} else if escaped, ok := escapePathPrefix(prefix); ok {
-		modpath, relpath := filepath.Split(escaped)
-		for modpath != "" {
-			modpath = filepath.Clean(modpath)
-			m.completeModulePackage(result, prefix, modpath, relpath)
-			parent, name := filepath.Split(modpath)
-			modpath, relpath = parent, filepath.Join(name, relpath)
+	for i, ch := range escaped {
+		if ch == filepath.Separator {
+			modpath, relpath := escaped[:i], escaped[i+1:]
+			m.log("Complete package %q version %q modpath %q", pkg, version, modpath)
+			if hasVersion {
+				m.completeVersion(result, pkg, version, modpath)
+			} else {
+				m.completeModulePackage(result, pkg, modpath, relpath)
+			}
 		}
+	}
+	if hasVersion {
+		m.completeVersion(result, pkg, version, escaped)
+	} else {
+		m.completeModule(result, pkg, escaped)
 	}
 	return result
 }
 
-func (m ModCache) completeModulePackage(result map[string]string, prefix, modpath, relpath string) {
-	moddir, modname := filepath.Dir(modpath), filepath.Base(modpath)
-	entries, err := m.fs.ReadDir(moddir)
+func (m ModCache) completeModule(result map[string]string, pkg, modpath string) {
+	parent, _ := path.Split(pkg)
+	moddir, modprefix := filepath.Split(modpath)
+	entries, err := m.fs.ReadDir(filepath.Clean(moddir))
 	if err != nil {
+		m.log("moddir %q error %v", moddir, err)
 		return
 	}
+	m.log("Complete module package %q moddir %q modprefix %q", pkg, moddir, modprefix)
 	for _, entry := range entries {
-		name, _, ok := strings.Cut(entry.Name(), "@")
-		if !entry.IsDir() || !ok || name != modname {
+		name := entry.Name()
+		m.log("package %q moddir %q prefix %q name %q", pkg, moddir, modprefix, name)
+		if !entry.IsDir() || !strings.HasPrefix(name, modprefix) {
 			continue
 		}
-		prefixpath := filepath.Join(moddir, name, relpath)
-		m.completePackages(result, prefix, prefixpath)
-		if !strings.HasPrefix(prefix, "/") {
-			m.completePackages(result, prefix+"/", prefixpath+"/")
+		name, _, hasVersion := strings.Cut(name, "@")
+		if name, err := unescapePath(name); err == nil {
+			result[parent+name+"/"] = ""
+			if hasVersion {
+				result[parent+name+"@"] = ""
+			}
 		}
 	}
 }
 
-func (m ModCache) completePackages(result map[string]string, prefix, prefixpath string) {
-	// fmt.Printf("pkg %q %q\n", prefix, prefixpath)
-	parent, _ := path.Split(prefix)
-	parentdir, namePrefix := path.Split(prefixpath)
-	entries, err := m.fs.ReadDir(parentdir)
+func (m ModCache) completeModulePackage(result map[string]string, pkg, modpath, relpath string) {
+	moddir, modname := filepath.Split(modpath)
+	entries, err := m.fs.ReadDir(filepath.Clean(moddir))
 	if err != nil {
+		m.log("moddir %q err %q", moddir, err)
 		return
 	}
+	for _, entry := range entries {
+		name := entry.Name()
+		m.log("moddir %q modname %q name %q", moddir, modname, name)
+		if !entry.IsDir() || !strings.HasPrefix(name, modname+"@") {
+			continue
+		}
+		prefixpath := filepath.Join(moddir, name, relpath)
+		m.completePackage(result, pkg, prefixpath)
+		if !strings.HasSuffix(pkg, "/") {
+			m.completePackage(result, pkg+"/", prefixpath+string(filepath.Separator))
+		}
+	}
+}
+
+func (m ModCache) completePackage(result map[string]string, pkg, pkgpath string) {
+	parent, _ := path.Split(pkg)
+	parentDir, namePrefix := filepath.Split(pkgpath)
+	entries, err := m.fs.ReadDir(filepath.Clean(parentDir))
+	if err != nil {
+		m.log("package %q directory %q error %v", pkg, parentDir, err)
+		return
+	}
+	m.log("package %q directory %q", pkg, parentDir)
 	for _, entry := range entries {
 		name := entry.Name()
 		if !entry.IsDir() || !strings.HasPrefix(name, namePrefix) || ignoredPackageDir(name) {
 			continue
 		}
-		name, err := module.UnescapePath(name)
-		if err != nil {
-			continue
-		}
-		result[path.Join(parent, name)] = ""
-	}
-}
-
-func (m ModCache) completeModulePaths(result map[string]string, prefix string) {
-	escaped, ok := escapePathPrefix(prefix)
-	if !ok {
-		return
-	}
-	m.completePathDir(result, escaped, false)
-	m.completePathDir(result, path.Join("cache/download", escaped), true)
-}
-
-func (m ModCache) completePathDir(result map[string]string, escaped string, download bool) {
-	dir, namePrefix := path.Split(escaped)
-	entries, _ := m.fs.ReadDir(path.Dir(escaped + "x"))
-	for _, entry := range entries {
-		name := entry.Name()
-		if !entry.IsDir() || name == "@v" || !strings.HasPrefix(name, namePrefix) {
-			continue
-		}
-		base, ver, hasVersion := strings.Cut(name, "@")
-		suggestPath := dir + base
-		if download {
-			suggestPath = strings.TrimPrefix(suggestPath, "cache/download/")
-		}
-		suggest, err := module.UnescapePath(suggestPath)
-		if err != nil {
-			continue
-		}
-		if hasVersion {
-			if _, err = module.UnescapeVersion(ver); err == nil {
-				result[suggest+"@"] = ""
-			}
-			continue
-		}
-		if !download {
-			result[suggest+"/"] = ""
-		} else if _, err := fs.Stat(m.fs, path.Join(dir, name, "@v", "list")); err == nil {
-			result[suggest+"@"] = ""
+		if pkgname, err := unescapePath(name); err == nil {
+			result[parent+pkgname] = ""
 		}
 	}
 }
 
-func (m ModCache) completePackageVersions(result map[string]string, pkgpath, prefix string) {
-	for _, v := range []string{"latest", "patch", "none"} {
-		if strings.HasPrefix(v, prefix) {
-			result[pkgpath+"@"+v] = ""
+func (m ModCache) completeVersion(result map[string]string, pkg, versionPrefix, modpath string) {
+	m.log("complete version for package %q version %q modpath %q", pkg, versionPrefix, modpath)
+	for _, v := range []string{"latest", "patch"} {
+		if strings.HasPrefix(v, versionPrefix) {
+			result[pkg+"@"+v] = ""
 		}
 	}
-	m.readExtractedModuleDirs(pkgpath, func(mod module.Version, dir string) bool {
-		if mod.Path == "" {
-			return true
-		}
-		suffix, ok := packageSuffix(mod.Path, pkgpath)
-		if !ok || !m.dirExists(path.Join(dir, suffix)) {
-			return true
-		}
-		m.completeVersions(result, pkgpath, mod.Path, prefix)
-		return true
-	})
-}
-
-func (m ModCache) completeVersions(result map[string]string, suggestPath, modpath, prefix string) {
-	for _, v := range []string{"latest", "patch", "none"} {
-		if strings.HasPrefix(v, prefix) {
-			result[suggestPath+"@"+v] = ""
-		}
-	}
-
-	escaped, ok := escapePathPrefix(modpath + "@" + prefix)
-	if ok {
-		dir, namePrefix := path.Split(escaped)
-		entries, _ := m.fs.ReadDir(path.Dir(dir + "x"))
-		for _, entry := range entries {
-			name, v, found := strings.Cut(entry.Name(), "@")
-			if !entry.IsDir() || !found || !strings.HasPrefix(name+"@"+v, namePrefix) {
-				continue
-			}
-			if v, err := module.UnescapeVersion(v); err == nil {
-				result[suggestPath+"@"+v] = ""
-			}
-		}
-	}
-
-	escapedMod, err := module.EscapePath(modpath)
-	if err != nil {
-		return
-	}
-	versionDir := path.Join("cache/download", escapedMod, "@v")
-	if data, err := fs.ReadFile(m.fs, path.Join(versionDir, "list")); err == nil {
+	if data, err := fs.ReadFile(m.fs, moduleVersionsPath(modpath)); err == nil {
 		scan := bufio.NewScanner(strings.NewReader(string(data)))
 		for scan.Scan() {
-			if v := scan.Text(); strings.HasPrefix(v, prefix) {
-				result[suggestPath+"@"+v] = ""
-			}
-		}
-	}
-	entries, _ := m.fs.ReadDir(versionDir)
-	for _, entry := range entries {
-		if v, ok := strings.CutSuffix(entry.Name(), ".info"); ok && strings.HasPrefix(v, prefix) {
-			if v, err := module.UnescapeVersion(v); err == nil {
-				result[suggestPath+"@"+v] = ""
+			if v := scan.Text(); strings.HasPrefix(v, versionPrefix) {
+				result[pkg+"@"+v] = ""
 			}
 		}
 	}
 }
 
-func (m ModCache) readExtractedModuleDirs(pkgpath string, fn func(module.Version, string) bool) {
-	for modpath := strings.Trim(pkgpath, "/"); modpath != "." && modpath != "/"; modpath = path.Dir(modpath) {
-		escaped, err := module.EscapePath(modpath)
-		if err == nil {
-			dir, base := path.Split(escaped)
-			entries, _ := m.fs.ReadDir(path.Dir(escaped + "x"))
-			for _, entry := range entries {
-				name, ver, ok := strings.Cut(entry.Name(), "@")
-				if !entry.IsDir() || !ok || name != base {
-					continue
-				}
-				version, err := module.UnescapeVersion(ver)
-				if err != nil {
-					continue
-				}
-				if !fn(module.Version{Path: modpath, Version: version}, path.Join(dir, entry.Name())) {
-					return
-				}
-			}
-		}
-		if !strings.Contains(modpath, "/") {
-			return
-		}
+func escapePath(name string) (string, error) {
+	escaped, err := module.EscapePath("x.x/" + name + "x")
+	if err != nil {
+		return "", err
 	}
+	return escaped[4 : len(escaped)-1], nil
 }
 
-func packageSuffix(modpath, pkgpath string) (string, bool) {
-	if pkgpath == modpath {
-		return "", true
-	}
-	if after, ok := strings.CutPrefix(pkgpath, modpath+"/"); ok {
-		return after, true
-	}
-	return "", false
+func unescapePath(escaped string) (string, error) {
+	return module.UnescapePath(escaped)
 }
 
-func (m ModCache) dirExists(dir string) bool {
-	_, err := m.fs.ReadDir(dir)
-	return err == nil
+func moduleVersionsPath(modpath string) string {
+	return path.Join("cache", "download", modpath, "@v", "list")
 }
 
 func ignoredPackageDir(name string) bool {
 	return name == "vendor" || name == "testdata" || strings.HasPrefix(name, ".") || strings.HasPrefix(name, "_")
-}
-
-func escapePathPrefix(prefix string) (string, bool) {
-	escaped, err := module.EscapePath("x.x/" + prefix + "x")
-	if err != nil {
-		return "", false
-	}
-	return escaped[4 : len(escaped)-1], true
 }
