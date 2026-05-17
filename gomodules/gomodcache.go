@@ -19,6 +19,65 @@ func CompletePackages(prefix string) map[string]string {
 	return NewModCache().CompletePackages(prefix)
 }
 
+// ModCache reads a Go module cache laid out like GOPATH/pkg/mod (or GOMODCACHE).
+//
+// See the Go module cache reference for the canonical cache description:
+// https://go.dev/ref/mod#module-cache
+//
+// The parts used by completion can be described as:
+//
+//	<cache>                ::= <extract-tree> | "cache/download/" <download-tree>
+//	<extract-tree>         ::= <escaped-module-path> "@" <escaped-version> "/" ...
+//	<download-tree>        ::= <escaped-module-path> "/@v/" <version-file>
+//	<version-file>         ::= "list" | <escaped-version> ".info" | ...
+//	<package-dir>          ::= <escaped-module-path> "@" <escaped-version>
+//	                           ["/" <package-suffix>]
+//	<package-suffix>       ::= <path-component> ["/" <package-suffix>]
+//
+// Module and version completion use both cache trees:
+//
+//   - Extracted module directories live directly under the cache root as
+//     escaped module paths suffixed with @version. For example, module
+//     example.com/one at v1.0.0 is extracted as example.com/one@v1.0.0, and
+//     module example.com/one/v2 at v2.0.0 is extracted as
+//     example.com/one/v2@v2.0.0. Upper-case letters in module paths are escaped
+//     with exclamation marks (ABC becomes !a!b!c). These directories provide
+//     already-extracted module paths, installed versions, and package contents.
+//
+//   - Download metadata lives under cache/download/<escaped-module>/@v. The
+//     @v/list file contains newline-separated versions known to the go command;
+//     individual <version>.info files may also exist for cached versions. Parent
+//     directories below cache/download mirror escaped module path components, so
+//     they provide module path prefixes and versions even when the module has not
+//     been extracted.
+//
+// Package completion uses extracted module directories only; download metadata
+// records module versions, not the packages contained in a module. A package path
+// is mapped back to a module path by trying every ancestor of the package path as
+// a module candidate, from the longest/deepest path to the shortest/shallowest
+// path. There is no assumption that a module path has exactly two path elements:
+// for cloud.google.com/go/storage/internal, candidates are checked in this order:
+//
+//	cloud.google.com/go/storage/internal
+//	cloud.google.com/go/storage
+//	cloud.google.com/go
+//	cloud.google.com
+//
+// The longest/deepest candidate has the highest priority because it is the most
+// specific module path. Completion still keeps scanning shallower candidates so
+// it can return suggestions from every cached module that could contain the
+// package path.
+//
+// A candidate is treated as a cached module when its escaped parent directory
+// contains an extracted <module-base>@<version> entry. For example, if
+// example.com/one@v1.0.0 exists while completing example.com/one/pkg, then
+// example.com/one is the module path and pkg is the package suffix inside that
+// extracted module directory. Completion reads the package suffix's parent
+// directory in the extracted module and suggests matching package directories,
+// skipping vendor, testdata, dot-prefixed, and underscore-prefixed directories.
+// Package version completion uses the same package-to-module mapping, verifies
+// that the package suffix exists in the extracted module, and then reuses that
+// module's version metadata.
 type ModCache struct {
 	fs fs.ReadDirFS
 }
