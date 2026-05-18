@@ -86,14 +86,15 @@ func (m ModCache) CompletePackages(prefix string) map[string]string {
 	}
 	result := map[string]string{}
 	for i, ch := range escaped {
-		if ch == filepath.Separator {
-			modpath, relpath := escaped[:i], escaped[i+1:]
-			m.log("Complete package %q version %q modpath %q", pkg, version, modpath)
-			if hasVersion {
-				m.completeVersion(result, pkg, version, modpath)
-			} else {
-				m.completeModulePackage(result, pkg, modpath, relpath)
-			}
+		if ch != filepath.Separator {
+			continue
+		}
+		modpath, relpath := escaped[:i], escaped[i:]
+		m.log("Complete package %q version %q modpath %q relpath %q", pkg, version, modpath, relpath)
+		if hasVersion {
+			m.completeVersion(result, pkg, version, modpath)
+		} else {
+			m.completeModulePackage(result, pkg, modpath, relpath)
 		}
 	}
 	if hasVersion {
@@ -116,7 +117,7 @@ func (m ModCache) completeModule(result map[string]string, pkg, modpath string) 
 	for _, entry := range entries {
 		name := entry.Name()
 		m.log("package %q moddir %q prefix %q name %q", pkg, moddir, modprefix, name)
-		if !entry.IsDir() || !strings.HasPrefix(name, modprefix) {
+		if !entry.IsDir() || !strings.HasPrefix(name, modprefix) || moddir == "" && name == "cache" {
 			continue
 		}
 		name, _, hasVersion := strings.Cut(name, "@")
@@ -124,7 +125,11 @@ func (m ModCache) completeModule(result map[string]string, pkg, modpath string) 
 			result[parent+name+"/"] = ""
 			if hasVersion {
 				result[parent+name+"@"] = ""
+			} else {
+				result[parent+name] = ""
 			}
+		} else {
+			m.log("cannot unescape %q error %v", name, err)
 		}
 	}
 }
@@ -138,11 +143,11 @@ func (m ModCache) completeModulePackage(result map[string]string, pkg, modpath, 
 	}
 	for _, entry := range entries {
 		name := entry.Name()
-		m.log("moddir %q modname %q name %q", moddir, modname, name)
 		if !entry.IsDir() || !strings.HasPrefix(name, modname+"@") {
 			continue
 		}
-		prefixpath := filepath.Join(moddir, name, relpath)
+		prefixpath := filepath.Join(moddir, name) + relpath
+		m.log("package %q moddir %q modname %q name %q prefixpath %q", pkg, moddir, modname, name, prefixpath)
 		m.completePackage(result, pkg, prefixpath)
 		if !strings.HasSuffix(pkg, "/") {
 			m.completePackage(result, pkg+"/", prefixpath+string(filepath.Separator))
@@ -158,7 +163,7 @@ func (m ModCache) completePackage(result map[string]string, pkg, pkgpath string)
 		m.log("package %q directory %q error %v", pkg, parentDir, err)
 		return
 	}
-	m.log("package %q directory %q", pkg, parentDir)
+	m.log("package %q parent %q directory %q prefix %q", pkg, parent, parentDir, namePrefix)
 	for _, entry := range entries {
 		name := entry.Name()
 		if !entry.IsDir() || !strings.HasPrefix(name, namePrefix) || ignoredPackageDir(name) {
@@ -166,6 +171,9 @@ func (m ModCache) completePackage(result map[string]string, pkg, pkgpath string)
 		}
 		if pkgname, err := unescapePath(name); err == nil {
 			result[parent+pkgname] = ""
+			result[parent+pkgname+"/"] = ""
+		} else {
+			m.log("cannot unescape %q error %v", name, err)
 		}
 	}
 }
@@ -196,7 +204,11 @@ func escapePath(name string) (string, error) {
 }
 
 func unescapePath(escaped string) (string, error) {
-	return module.UnescapePath(escaped)
+	unescaped, err := module.UnescapePath("x.x/" + escaped + "x")
+	if err != nil {
+		return "", err
+	}
+	return unescaped[4 : len(unescaped)-1], nil
 }
 
 func moduleVersionsPath(modpath string) string {
