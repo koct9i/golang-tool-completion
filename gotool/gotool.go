@@ -181,9 +181,12 @@ func Clean() *cli.Command {
 
 func Doc() *cli.Command {
 	return &cli.Command{
-		Name:     "doc",
-		Usage:    "show documentation for package or symbol",
-		Metadata: map[string]any{"DocURL": docAnchor("Show_documentation_for_package_or_symbol")},
+		Name:  "doc",
+		Usage: "show documentation for package or symbol",
+		Metadata: map[string]any{
+			"DocURL":            docAnchor("Show_documentation_for_package_or_symbol"),
+			"CompleteArguments": gomodules.CompletePackages,
+		},
 		Flags: []cli.Flag{
 			&cli.BoolFlag{Name: "all", Usage: "Show all the documentation for the package.", Category: catOutput},
 			&cli.BoolFlag{Name: "c", Usage: "Respect case when matching symbols.", Category: catGeneral},

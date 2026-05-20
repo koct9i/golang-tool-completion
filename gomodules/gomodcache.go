@@ -12,11 +12,17 @@ import (
 )
 
 func CompleteModules(prefix string) map[string]string {
-	return NewModCache().CompleteModules(prefix)
+	result := make(map[string]string)
+	NewModCache().CompleteModules(result, prefix)
+	CompletePopular(result, prefix)
+	return result
 }
 
 func CompletePackages(prefix string) map[string]string {
-	return NewModCache().CompletePackages(prefix)
+	result := make(map[string]string)
+	NewModCache().CompletePackages(result, prefix)
+	CompletePopular(result, prefix)
+	return result
 }
 
 // ModCache reads a Go module cache laid out like GOPATH/pkg/mod (or GOMODCACHE).
@@ -63,28 +69,25 @@ func NewModCache() ModCache {
 	}
 }
 
-func (m ModCache) CompleteModules(prefix string) map[string]string {
+func (m ModCache) CompleteModules(result map[string]string, prefix string) {
 	module, version, hasVersion := strings.Cut(prefix, "@")
 	escaped, err := escapePath(module)
 	if err != nil {
-		return nil
+		return
 	}
-	result := map[string]string{}
 	if hasVersion {
 		m.completeVersion(result, module, version, escaped)
 	} else {
 		m.completeModule(result, module, escaped)
 	}
-	return result
 }
 
-func (m ModCache) CompletePackages(prefix string) map[string]string {
+func (m ModCache) CompletePackages(result map[string]string, prefix string) {
 	pkg, version, hasVersion := strings.Cut(prefix, "@")
 	escaped, err := escapePath(pkg)
 	if err != nil {
-		return nil
+		return
 	}
-	result := map[string]string{}
 	for i, ch := range escaped {
 		if ch != filepath.Separator {
 			continue
@@ -102,7 +105,6 @@ func (m ModCache) CompletePackages(prefix string) map[string]string {
 	} else {
 		m.completeModule(result, pkg, escaped)
 	}
-	return result
 }
 
 func (m ModCache) completeModule(result map[string]string, pkg, modpath string) {

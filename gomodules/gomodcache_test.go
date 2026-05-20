@@ -33,7 +33,9 @@ func TestCompleteModulesFromCache(t *testing.T) {
 		{"example.com/one/v2@v", []string{"example.com/one/v2@v2.0.0", "example.com/one/v2@v2.1.0"}},
 	} {
 		t.Run(tt.prefix, func(t *testing.T) {
-			got := keys(cache.CompleteModules(tt.prefix))
+			result := map[string]string{}
+			cache.CompleteModules(result, tt.prefix)
+			got := keys(result)
 			slices.Sort(got)
 			if !slices.Equal(got, tt.want) {
 				t.Fatalf("CompleteModules(%q) = %v, want %v", tt.prefix, got, tt.want)
@@ -58,7 +60,9 @@ func TestCompletePackagesFromCache(t *testing.T) {
 		{"example.com/ABC/", []string{"example.com/ABC/some/", "example.com/ABC/some@"}},
 	} {
 		t.Run(tt.prefix, func(t *testing.T) {
-			got := keys(cache.CompletePackages(tt.prefix))
+			result := map[string]string{}
+			cache.CompletePackages(result, tt.prefix)
+			got := keys(result)
 			slices.Sort(got)
 			if !slices.Equal(got, tt.want) {
 				t.Fatalf("CompletePackages(%q) = %v, want %v", tt.prefix, got, tt.want)
