@@ -3,6 +3,7 @@ package gomodules
 import (
 	"embed"
 	"io/fs"
+	"maps"
 	"slices"
 	"testing"
 )
@@ -38,8 +39,7 @@ func TestCompleteModulesFromCache(t *testing.T) {
 		t.Run(tt.prefix, func(t *testing.T) {
 			result := map[string]string{}
 			cache.CompleteModules(result, tt.prefix)
-			got := keys(result)
-			slices.Sort(got)
+			got := slices.Sorted(maps.Keys(result))
 			if !slices.Equal(got, tt.want) {
 				t.Fatalf("CompleteModules(%q) = %v, want %v", tt.prefix, got, tt.want)
 			}
@@ -77,8 +77,7 @@ func TestCompletePackagesFromCache(t *testing.T) {
 		t.Run(tt.prefix, func(t *testing.T) {
 			result := map[string]string{}
 			cache.CompletePackages(result, tt.prefix)
-			got := keys(result)
-			slices.Sort(got)
+			got := slices.Sorted(maps.Keys(result))
 			if !slices.Equal(got, tt.want) {
 				t.Fatalf("CompletePackages(%q) = %v, want %v", tt.prefix, got, tt.want)
 			}
@@ -101,12 +100,4 @@ func testModCache(t *testing.T, dir string) ModCache {
 		fs:  readDirFS,
 		log: t.Logf,
 	}
-}
-
-func keys(m map[string]string) []string {
-	keys := make([]string, 0, len(m))
-	for key := range m {
-		keys = append(keys, key)
-	}
-	return keys
 }
