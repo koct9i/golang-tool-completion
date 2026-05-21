@@ -13,16 +13,29 @@ import (
 
 func CompleteModules(prefix string) map[string]string {
 	result := make(map[string]string)
-	NewModCache().CompleteModules(result, prefix)
 	CompletePopular(result, prefix)
+	NewModCache().CompleteModules(result, prefix)
+	fixupLoneResult(result)
 	return result
 }
 
 func CompletePackages(prefix string) map[string]string {
 	result := make(map[string]string)
-	NewModCache().CompletePackages(result, prefix)
 	CompletePopular(result, prefix)
+	NewModCache().CompletePackages(result, prefix)
+	fixupLoneResult(result)
 	return result
+}
+
+func fixupLoneResult(result map[string]string) {
+	if len(result) == 1 {
+		for pkg, status := range result {
+			if strings.HasSuffix(pkg, "/") || strings.HasSuffix(pkg, "@") {
+				result[pkg[:len(pkg)-1]] = status
+			}
+			break
+		}
+	}
 }
 
 // ModCache reads a Go module cache laid out like GOPATH/pkg/mod (or GOMODCACHE).
@@ -76,7 +89,7 @@ func (m ModCache) CompleteModules(result map[string]string, prefix string) {
 		return
 	}
 	if hasVersion {
-		m.completeVersion(result, module, version, escaped)
+		m.completeVersion(result, module, version, escaped, "")
 	} else {
 		m.completeModule(result, module, escaped)
 	}
@@ -95,13 +108,13 @@ func (m ModCache) CompletePackages(result map[string]string, prefix string) {
 		modpath, relpath := escaped[:i], escaped[i:]
 		m.log("Complete package %q version %q modpath %q relpath %q", pkg, version, modpath, relpath)
 		if hasVersion {
-			m.completeVersion(result, pkg, version, modpath)
+			m.completeVersion(result, pkg, version, modpath, relpath)
 		} else {
 			m.completeModulePackage(result, pkg, modpath, relpath)
 		}
 	}
 	if hasVersion {
-		m.completeVersion(result, pkg, version, escaped)
+		m.completeVersion(result, pkg, version, escaped, "")
 	} else {
 		m.completeModule(result, pkg, escaped)
 	}
@@ -124,11 +137,9 @@ func (m ModCache) completeModule(result map[string]string, pkg, modpath string) 
 		}
 		name, _, hasVersion := strings.Cut(name, "@")
 		if name, err := unescapePath(name); err == nil {
-			result[parent+name+"/"] = ""
+			result[parent+name+"/"] = "cache"
 			if hasVersion {
-				result[parent+name+"@"] = ""
-			} else {
-				result[parent+name] = ""
+				result[parent+name+"@"] = "cache"
 			}
 		} else {
 			m.log("cannot unescape %q error %v", name, err)
@@ -152,7 +163,7 @@ func (m ModCache) completeModulePackage(result map[string]string, pkg, modpath, 
 		m.log("package %q moddir %q modname %q name %q prefixpath %q", pkg, moddir, modname, name, prefixpath)
 		m.completePackage(result, pkg, prefixpath)
 		if !strings.HasSuffix(pkg, "/") {
-			m.completePackage(result, pkg+"/", prefixpath+string(filepath.Separator))
+			// m.completePackage(result, pkg+"/", prefixpath+string(filepath.Separator))
 		}
 	}
 }
@@ -172,29 +183,42 @@ func (m ModCache) completePackage(result map[string]string, pkg, pkgpath string)
 			continue
 		}
 		if pkgname, err := unescapePath(name); err == nil {
-			result[parent+pkgname] = ""
-			result[parent+pkgname+"/"] = ""
+			result[parent+pkgname+"/"] = "cache"
 		} else {
 			m.log("cannot unescape %q error %v", name, err)
 		}
 	}
 }
 
-func (m ModCache) completeVersion(result map[string]string, pkg, versionPrefix, modpath string) {
+func (m ModCache) completeVersion(result map[string]string, pkg, versionPrefix, modpath, relpath string) {
 	m.log("complete version for package %q version %q modpath %q", pkg, versionPrefix, modpath)
 	for _, v := range []string{"latest", "patch"} {
 		if strings.HasPrefix(v, versionPrefix) {
-			result[pkg+"@"+v] = ""
+			result[pkg+"@"+v] = v
 		}
 	}
 	if data, err := fs.ReadFile(m.fs, moduleVersionsPath(modpath)); err == nil {
 		scan := bufio.NewScanner(strings.NewReader(string(data)))
 		for scan.Scan() {
 			if v := scan.Text(); strings.HasPrefix(v, versionPrefix) {
-				result[pkg+"@"+v] = ""
+				if status, ok := m.getPacakgeStatus(modpath, relpath, v); ok {
+					result[pkg+"@"+v] = status
+				}
 			}
 		}
 	}
+}
+
+func (m ModCache) getPacakgeStatus(modpath, relpath, version string) (string, bool) {
+	if escaped, err := module.EscapeVersion(version); err == nil {
+		if st, err := fs.Stat(m.fs, modpath+"@"+escaped+relpath); err == nil {
+			return "cache", st.IsDir()
+		}
+		if _, err := fs.Stat(m.fs, modpath+"@"+escaped); err == nil {
+			return "", false // module in cache but has no package
+		}
+	}
+	return "", true
 }
 
 func escapePath(name string) (string, error) {

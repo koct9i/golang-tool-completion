@@ -17,12 +17,15 @@ func TestCompleteModulesFromCache(t *testing.T) {
 		prefix string
 		want   []string
 	}{
-		{"", []string{"example.com", "example.com/"}},
-		{"e", []string{"example.com", "example.com/"}},
-		{"example.com", []string{"example.com", "example.com/"}},
-		{"example.com/", []string{"example.com/ABC", "example.com/ABC/", "example.com/one", "example.com/one/", "example.com/one@"}},
+		{".", []string{}},
+		{"./", []string{}},
+		{"x", []string{}},
+		{"", []string{"example.com/"}},
+		{"e", []string{"example.com/"}},
+		{"example.com", []string{"example.com/"}},
+		{"example.com/", []string{"example.com/ABC/", "example.com/one/", "example.com/one@"}},
 		{"example.com/ABC/", []string{"example.com/ABC/some/", "example.com/ABC/some@"}},
-		{"example.com/o", []string{"example.com/one", "example.com/one/", "example.com/one@"}},
+		{"example.com/o", []string{"example.com/one/", "example.com/one@"}},
 		{"example.com/one/", []string{"example.com/one/two/", "example.com/one/two@", "example.com/one/v2/", "example.com/one/v2@"}},
 		{"example.com/one@v", []string{"example.com/one@v1.0.0", "example.com/one@v1.1.0"}},
 		{"example.com/one@l", []string{"example.com/one@latest"}},
@@ -51,12 +54,24 @@ func TestCompletePackagesFromCache(t *testing.T) {
 		prefix string
 		want   []string
 	}{
-		{"example.com/one/", []string{"example.com/one/pkg", "example.com/one/pkg/", "example.com/one/two/", "example.com/one/two@", "example.com/one/v2/", "example.com/one/v2@"}},
+		{".", []string{}},
+		{"./", []string{}},
+		{"x", []string{}},
+		{"", []string{"example.com/"}},
+		{"e", []string{"example.com/"}},
+		{"example.com", []string{"example.com/"}},
+		{"example.com/", []string{"example.com/ABC/", "example.com/one/", "example.com/one@"}},
+		{"example.com/o", []string{"example.com/one/", "example.com/one@"}},
+		{"example.com/one/", []string{"example.com/one/pkg/", "example.com/one/two/", "example.com/one/two@", "example.com/one/v2/", "example.com/one/v2@"}},
+		{"example.com/one@v", []string{"example.com/one@v1.0.0", "example.com/one@v1.1.0"}},
+		{"example.com/one@l", []string{"example.com/one@latest"}},
+		{"example.com/one@p", []string{"example.com/one@patch"}},
 		{"example.com/one/v", []string{"example.com/one/v2/", "example.com/one/v2@"}},
-		{"example.com/one/p", []string{"example.com/one/pkg", "example.com/one/pkg/"}},
+		{"example.com/one/p", []string{"example.com/one/pkg/"}},
 		{"example.com/one/t", []string{"example.com/one/two/", "example.com/one/two@"}},
-		{"example.com/one/two/", []string{"example.com/one/two/pkg", "example.com/one/two/pkg/"}},
-		{"example.com/A", []string{"example.com/ABC", "example.com/ABC/"}},
+		{"example.com/one/two/", []string{"example.com/one/two/pkg/"}},
+		{"example.com/one/two@v", []string{"example.com/one/two@v1.0.0", "example.com/one/two@v1.1.0"}},
+		{"example.com/A", []string{"example.com/ABC/"}},
 		{"example.com/ABC/", []string{"example.com/ABC/some/", "example.com/ABC/some@"}},
 	} {
 		t.Run(tt.prefix, func(t *testing.T) {

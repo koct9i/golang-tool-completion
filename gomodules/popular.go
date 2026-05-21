@@ -11,10 +11,13 @@ import (
 var popular string
 
 func CompletePopular(results map[string]string, prefix string) {
-	if strings.Contains(prefix, "/") {
-		for line := range strings.Lines(popular) {
-			if strings.HasPrefix(line, prefix) {
-				results[strings.TrimSuffix(line, "\n")] = "popular"
+	for line := range strings.Lines(popular) {
+		if tail, found := strings.CutPrefix(line, prefix); found {
+			tail, _ = strings.CutSuffix(tail, "\n")
+			if tail, _, found = strings.Cut(tail, "/"); found {
+				results[prefix+tail+"/"] = "popular"
+			} else {
+				results[prefix+tail+"@"] = "popular"
 			}
 		}
 	}
