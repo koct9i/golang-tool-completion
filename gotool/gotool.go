@@ -185,7 +185,7 @@ func Doc() *cli.Command {
 		Usage: "show documentation for package or symbol",
 		Metadata: map[string]any{
 			"DocURL":            docAnchor("Show_documentation_for_package_or_symbol"),
-			"CompleteArguments": gomodules.CompletePackages,
+			"CompleteArguments": gomodules.CompleteDocPackages,
 		},
 		Flags: []cli.Flag{
 			&cli.BoolFlag{Name: "all", Usage: "Show all the documentation for the package.", Category: catOutput},

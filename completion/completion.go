@@ -142,9 +142,8 @@ func doCompletion(ctx context.Context, c *cli.Command, shell string, completeArg
 				}
 			}
 		}
-	} else if completeArguments, ok := lastCmd.Metadata["CompleteArguments"]; ok {
-		// Complete arguments
-		result = completeArguments.(func(string) map[string]string)(lastArg)
+	} else if completeArguments, ok := lastCmd.Metadata["CompleteArguments"].(func(string) map[string]string); ok {
+		result = completeArguments(lastArg)
 	}
 
 	buffer := bufio.NewWriter(c.Writer)

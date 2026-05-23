@@ -11,33 +11,6 @@ import (
 	"golang.org/x/mod/module"
 )
 
-func CompleteModules(prefix string) map[string]string {
-	result := make(map[string]string)
-	CompletePopular(result, prefix)
-	NewModCache().CompleteModules(result, prefix)
-	fixupLoneResult(result)
-	return result
-}
-
-func CompletePackages(prefix string) map[string]string {
-	result := make(map[string]string)
-	CompletePopular(result, prefix)
-	NewModCache().CompletePackages(result, prefix)
-	fixupLoneResult(result)
-	return result
-}
-
-func fixupLoneResult(result map[string]string) {
-	if len(result) == 1 {
-		for pkg, status := range result {
-			if strings.HasSuffix(pkg, "/") || strings.HasSuffix(pkg, "@") {
-				result[pkg[:len(pkg)-1]] = status
-			}
-			break
-		}
-	}
-}
-
 // ModCache reads a Go module cache laid out like GOPATH/pkg/mod (or GOMODCACHE).
 //
 // See the Go module cache reference for the canonical cache description:
