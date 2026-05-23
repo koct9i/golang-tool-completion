@@ -31,7 +31,7 @@ complete -o bashdefault -o default -F __%[1]s_complete_bash %[1]s
   set -e args[1]
   "%[2]s" completion --complete fish -- $args
 end
-complete -a "(__fish_%[1]s_complete) -c "%[1]s"
+complete -a "(__fish_%[1]s_complete)" -c "%[1]s"
 `, command, handler)
 
 	case "zsh":
@@ -76,14 +76,14 @@ func doCompletionScript(writer io.Writer, shell, command, handler string, instal
 			dataHomeDir = filepath.Join(userHomeDir, ".local", "share")
 		}
 		scriptPath = filepath.Join(dataHomeDir, scriptPath)
-		if _, err = fmt.Fprintf(writer, "Installing completion script: %v\n", scriptPath); err != nil {
+		if _, err := fmt.Fprintf(writer, "Installing completion script: %v\n", scriptPath); err != nil {
 			return err
 		}
 		//nolint:gosec //0o644
-		if err = os.WriteFile(scriptPath, []byte(script), 0o644); err != nil {
+		if err := os.WriteFile(scriptPath, []byte(script), 0o644); err != nil {
 			return fmt.Errorf("failed to install completion script: %w", err)
 		}
-	} else if _, err = writer.Write([]byte(script)); err != nil {
+	} else if _, err := writer.Write([]byte(script)); err != nil {
 		return err
 	}
 	return cli.Exit("", 0)

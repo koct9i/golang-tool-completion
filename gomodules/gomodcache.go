@@ -176,7 +176,7 @@ func (m ModCache) completeVersion(result map[string]string, pkg, versionPrefix, 
 		scan := bufio.NewScanner(strings.NewReader(string(data)))
 		for scan.Scan() {
 			if v := scan.Text(); strings.HasPrefix(v, versionPrefix) {
-				if status, ok := m.getPacakgeStatus(modpath, relpath, v); ok {
+				if status, ok := m.getPackageStatus(modpath, relpath, v); ok {
 					result[pkg+"@"+v] = status
 				}
 			}
@@ -184,7 +184,7 @@ func (m ModCache) completeVersion(result map[string]string, pkg, versionPrefix, 
 	}
 }
 
-func (m ModCache) getPacakgeStatus(modpath, relpath, version string) (string, bool) {
+func (m ModCache) getPackageStatus(modpath, relpath, version string) (string, bool) {
 	if escaped, err := module.EscapeVersion(version); err == nil {
 		if st, err := fs.Stat(m.fs, modpath+"@"+escaped+relpath); err == nil {
 			return "cache", st.IsDir()
