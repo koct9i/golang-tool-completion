@@ -2,11 +2,15 @@ package gomodules
 
 import (
 	"bufio"
+	"bytes"
 	"io/fs"
 	"os"
+	"os/exec"
 	"path"
 	"path/filepath"
+	"slices"
 	"strings"
+	"sync"
 
 	"golang.org/x/mod/module"
 )
@@ -25,6 +29,76 @@ func CompletePackages(prefix string) map[string]string {
 	NewModCache().CompletePackages(result, prefix)
 	fixupLoneResult(result)
 	return result
+}
+
+func CompleteDocPackages(prefix string) map[string]string {
+	result := make(map[string]string)
+	CompletePopular(result, prefix)
+	completeStandardPackages(result, prefix)
+	completeLocalPackages(result, prefix)
+	NewModCache().CompletePackages(result, prefix)
+	fixupLoneResult(result)
+	return result
+}
+
+var (
+	stdPackagesOnce sync.Once
+	stdPackages     []string
+)
+
+func completeStandardPackages(result map[string]string, prefix string) {
+	stdPackagesOnce.Do(func() {
+		cmd := exec.Command("go", "list", "std")
+		output, err := cmd.Output()
+		if err != nil {
+			return
+		}
+		stdPackages = strings.Fields(string(bytes.TrimSpace(output)))
+		slices.Sort(stdPackages)
+	})
+
+	for _, pkg := range stdPackages {
+		if strings.HasPrefix(pkg, prefix) {
+			result[pkg] = "std"
+		}
+	}
+}
+
+func completeLocalPackages(result map[string]string, prefix string) {
+	if !strings.HasPrefix(prefix, "./") && prefix != "." {
+		return
+	}
+	dir := "."
+	if prefix != "." {
+		dir = filepath.Clean(prefix)
+	}
+	baseDir := dir
+	namePrefix := ""
+	if !strings.HasSuffix(prefix, "/") {
+		baseDir, namePrefix = filepath.Split(dir)
+		if baseDir == "" {
+			baseDir = "."
+		}
+	}
+	entries, err := os.ReadDir(baseDir)
+	if err != nil {
+		return
+	}
+	for _, entry := range entries {
+		if !entry.IsDir() || ignoredPackageDir(entry.Name()) || !strings.HasPrefix(entry.Name(), namePrefix) {
+			continue
+		}
+		p := filepath.ToSlash(filepath.Join(baseDir, entry.Name()))
+		if p == "." {
+			p = "./"
+		} else if !strings.HasPrefix(p, "./") {
+			p = "./" + p
+		}
+		if !strings.HasSuffix(p, "/") {
+			p += "/"
+		}
+		result[p] = "local"
+	}
 }
 
 func fixupLoneResult(result map[string]string) {
