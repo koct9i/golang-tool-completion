@@ -76,7 +76,9 @@ func doCompletionScript(writer io.Writer, shell, command, handler string, instal
 			dataHomeDir = filepath.Join(userHomeDir, ".local", "share")
 		}
 		scriptPath = filepath.Join(dataHomeDir, scriptPath)
-		fmt.Fprintf(writer, "Installing completion script: %v\n", scriptPath)
+		if _, err = fmt.Fprintf(writer, "Installing completion script: %v\n", scriptPath); err != nil {
+			return err
+		}
 		//nolint:gosec //0o644
 		if err = os.WriteFile(scriptPath, []byte(script), 0o644); err != nil {
 			return fmt.Errorf("failed to install completion script: %w", err)
@@ -87,7 +89,7 @@ func doCompletionScript(writer io.Writer, shell, command, handler string, instal
 	return cli.Exit("", 0)
 }
 
-type CompleteArgumentsFunc func(context.Context, string) map[string]string
+type CompleteArgumentsFunc = func(context.Context, string) map[string]string
 
 func doCompletion(ctx context.Context, c *cli.Command, shell string, completeArgs []string) error {
 	lastCmd := c.Root()
@@ -151,7 +153,6 @@ func doCompletion(ctx context.Context, c *cli.Command, shell string, completeArg
 	}
 
 	buffer := bufio.NewWriter(c.Writer)
-	defer buffer.Flush()
 
 	width := 0
 	for suggest := range result {
@@ -159,16 +160,20 @@ func doCompletion(ctx context.Context, c *cli.Command, shell string, completeArg
 	}
 
 	for _, suggest := range slices.Sorted(maps.Keys(result)) {
+		var err error
 		usage := result[suggest]
 		switch {
 		case shell == "bash" && usage != "" && len(result) > 1:
-			fmt.Fprintf(buffer, "%*s (%s)\n", -width-2, suggest, usage)
+			_, err = fmt.Fprintf(buffer, "%*s (%s)\n", -width-2, suggest, usage)
 		case shell == "fish":
-			fmt.Fprintf(buffer, "%s\t%s\n", suggest, usage)
+			_, err = fmt.Fprintf(buffer, "%s\t%s\n", suggest, usage)
 		case shell == "zsh":
-			fmt.Fprintf(buffer, "%s:%s\n", suggest, usage)
+			_, err = fmt.Fprintf(buffer, "%s:%s\n", suggest, usage)
 		default:
-			fmt.Fprintln(buffer, suggest)
+			_, err = fmt.Fprintln(buffer, suggest)
+		}
+		if err != nil {
+			return err
 		}
 	}
 
