@@ -7,14 +7,14 @@ Shell tab-completion for the `go` command — covering every subcommand, flag, a
 `golang-tool-completion` is a transparent wrapper around the standard `go` tool.
 
 It models all `go` subcommands, flags and arguments using [urfave/cli](https://github.com/urfave/cli) to provide help and shell tab-completion.
-All invocation besides `completion` and `--help` are forwarded unchanged to the real `go` binary.
+All invocation besides `completion` and `--help` are forwarded unchanged to the standard `go` binary.
 
 ```
-go build -h          → prints list of options with description and link to documentation
+go build -h          → prints complete usage and link to documentation
 go build -<TAB>      → completes command flags with a short description
 go get <TAB>         → completes package paths from cached and trending modules
 go get <pkg>@<TAB>   → completes package version
-go doc <pkg>.<TAB>   → completes package symbols
+go doc <pkg>.<TAB>   → completes package symbol
 go tool <TAB>        → completes tool command name
 ```
 
@@ -78,6 +78,11 @@ Argument completion for `build`, `get`, `install`, `list`, `run`, and similar co
 * **Download tree** — `cache/download/<escaped-module>/@v/list` files
 
 Also `golang-tool-completion` embeds list of [1000 trending go modules from goproxy.cn](https://goproxy.cn/stats).
+
+## Links
+
+- [golang proposal: bash_completions support #58598](https://github.com/golang/go/issues/58598)
+- [github.com/posener/complete](https://github.com/posener/complete)
 
 ## License
 
