@@ -46,3 +46,16 @@ func TestCompleteDocPackagesIncludesLocalPackages(t *testing.T) {
 	}
 }
 
+func TestCompleteDocPackagesIncludesPackageSymbols(t *testing.T) {
+	result := CompleteDocPackages("fmt.Pr")
+	if _, ok := result["fmt.Printf"]; !ok {
+		t.Fatalf("expected symbol fmt.Printf in results, got %v", result)
+	}
+}
+
+func TestSplitDocSymbolPrefix(t *testing.T) {
+	pkg, sym, ok := splitDocSymbolPrefix("example.com/pkg.Type.M")
+	if !ok || pkg != "example.com/pkg" || sym != "Type.M" {
+		t.Fatalf("unexpected split: pkg=%q sym=%q ok=%v", pkg, sym, ok)
+	}
+}

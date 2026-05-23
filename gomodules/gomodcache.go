@@ -33,12 +33,76 @@ func CompletePackages(prefix string) map[string]string {
 
 func CompleteDocPackages(prefix string) map[string]string {
 	result := make(map[string]string)
+	if pkg, symbolPrefix, isSymbol := splitDocSymbolPrefix(prefix); isSymbol {
+		completePackageSymbols(result, pkg, symbolPrefix)
+		fixupLoneResult(result)
+		return result
+	}
 	CompletePopular(result, prefix)
 	completeStandardPackages(result, prefix)
 	completeLocalPackages(result, prefix)
 	NewModCache().CompletePackages(result, prefix)
 	fixupLoneResult(result)
 	return result
+}
+
+func splitDocSymbolPrefix(prefix string) (pkg string, symbolPrefix string, ok bool) {
+	lastSlash := strings.LastIndex(prefix, "/")
+	lastElem := prefix[lastSlash+1:]
+	dot := strings.Index(lastElem, ".")
+	if dot < 0 {
+		return "", "", false
+	}
+	pkg = prefix[:lastSlash+1+dot]
+	symbolPrefix = lastElem[dot+1:]
+	return pkg, symbolPrefix, true
+}
+
+func completePackageSymbols(result map[string]string, pkg string, symbolPrefix string) {
+	cmd := exec.Command("go", "doc", "-short", pkg)
+	output, err := cmd.Output()
+	if err != nil {
+		return
+	}
+	for _, line := range strings.Split(string(output), "\n") {
+		line = strings.TrimSpace(line)
+		if line == "" {
+			continue
+		}
+		for _, symbol := range extractDocSymbols(line) {
+			if strings.HasPrefix(symbol, symbolPrefix) {
+				result[pkg+"."+symbol] = "symbol"
+			}
+		}
+	}
+}
+
+func extractDocSymbols(line string) []string {
+	fields := strings.Fields(line)
+	if len(fields) < 2 {
+		return nil
+	}
+	if fields[0] == "func" {
+		if fields[1] == "(" && len(fields) >= 4 {
+			recv := strings.Trim(fields[2], "()*")
+			method := strings.SplitN(fields[3], "(", 2)[0]
+			if recv != "" && method != "" {
+				return []string{recv + "." + method, method}
+			}
+			return nil
+		}
+		name := strings.SplitN(fields[1], "(", 2)[0]
+		if name != "" {
+			return []string{name}
+		}
+		return nil
+	}
+	if fields[0] == "type" || fields[0] == "var" || fields[0] == "const" {
+		if fields[1] != "(" {
+			return []string{fields[1]}
+		}
+	}
+	return nil
 }
 
 var (
