@@ -40,7 +40,10 @@ func GetModCachePath() string {
 	if gomodcache == "" {
 		gopath := os.Getenv("GOPATH")
 		if gopath == "" {
-			home, _ := os.UserHomeDir()
+			home, err := os.UserHomeDir()
+			if err != nil {
+				return ""
+			}
 			gopath = filepath.Join(home, "go")
 		}
 		gomodcache = filepath.Join(gopath, "pkg", "mod")
@@ -49,8 +52,10 @@ func GetModCachePath() string {
 }
 
 func NewModCache() ModCache {
+	//nolint:errcheck //fs.ReadDirFS
+	fs := os.DirFS(GetModCachePath()).(fs.ReadDirFS)
 	return ModCache{
-		fs:  os.DirFS(GetModCachePath()).(fs.ReadDirFS),
+		fs:  fs,
 		log: func(format string, args ...any) {},
 	}
 }

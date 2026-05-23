@@ -1,6 +1,7 @@
 package gomodules
 
 import (
+	"context"
 	"os/exec"
 	"path"
 	"strings"
@@ -8,7 +9,7 @@ import (
 	"golang.org/x/mod/module"
 )
 
-func CompleteModules(prefix string) map[string]string {
+func CompleteModules(ctx context.Context, prefix string) map[string]string {
 	if strings.HasPrefix(prefix, ".") {
 		return nil
 	}
@@ -19,7 +20,7 @@ func CompleteModules(prefix string) map[string]string {
 	return result
 }
 
-func CompletePackages(prefix string) map[string]string {
+func CompletePackages(ctx context.Context, prefix string) map[string]string {
 	if strings.HasPrefix(prefix, ".") {
 		return nil
 	}
@@ -30,30 +31,30 @@ func CompletePackages(prefix string) map[string]string {
 	return result
 }
 
-func CompleteDocPackages(prefix string) map[string]string {
+func CompleteDocPackages(ctx context.Context, prefix string) map[string]string {
 	result := make(map[string]string)
 	parent, tail := path.Split(prefix)
 	if pkgname, symbol, ok := strings.Cut(tail, "."); ok {
-		completePackageSymbols(result, parent+pkgname, symbol)
+		completePackageSymbols(ctx, result, parent+pkgname, symbol)
 	} else if !strings.HasPrefix(prefix, ".") {
-		completeStandardPackages(result, prefix)
+		completeStandardPackages(ctx, result, prefix)
 		NewModCache().CompletePackages(result, prefix)
 		fixupLoneResult(result)
 	}
 	return result
 }
 
-func CompleteTools(prefix string) map[string]string {
+func CompleteTools(ctx context.Context, prefix string) map[string]string {
 	result := make(map[string]string)
-	completeTools(result, prefix)
+	completeTools(ctx, result, prefix)
 	return result
 }
 
-func completeStandardPackages(result map[string]string, prefix string) {
+func completeStandardPackages(ctx context.Context, result map[string]string, prefix string) {
 	if strings.Contains(prefix, ".") {
 		return
 	}
-	cmd := exec.Command("go", "list", "std")
+	cmd := exec.CommandContext(ctx, "go", "list", "std")
 	output, err := cmd.Output()
 	if err != nil {
 		return
@@ -65,8 +66,9 @@ func completeStandardPackages(result map[string]string, prefix string) {
 	}
 }
 
-func completePackageSymbols(result map[string]string, pkg string, prefix string) {
-	cmd := exec.Command("go", "doc", "-short", pkg)
+func completePackageSymbols(ctx context.Context, result map[string]string, pkg string, prefix string) {
+	//nolint:gosec //pkg
+	cmd := exec.CommandContext(ctx, "go", "doc", "-short", pkg)
 	output, err := cmd.Output()
 	if err != nil {
 		return
@@ -80,9 +82,9 @@ func completePackageSymbols(result map[string]string, pkg string, prefix string)
 	}
 }
 
-func completeTools(result map[string]string, prefix string) {
+func completeTools(ctx context.Context, result map[string]string, prefix string) {
 	// TODO: Forward "--modfile".
-	cmd := exec.Command("go", "tool")
+	cmd := exec.CommandContext(ctx, "go", "tool")
 	output, err := cmd.Output()
 	if err != nil {
 		return

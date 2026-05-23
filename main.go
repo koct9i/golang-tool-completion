@@ -91,7 +91,6 @@ DOCUMENTATION:
 )
 
 func main() {
-
 	cli.RootCommandHelpTemplate = rootCommandHelpTemplate
 	cli.CommandHelpTemplate = commandHelpTemplate
 	cli.SubcommandHelpTemplate = subcommandHelpTemplate
@@ -115,11 +114,14 @@ func main() {
 				Name:    "help",
 				Aliases: []string{"h"},
 				Usage:   "show help",
-				Action: func(ctx context.Context, c *cli.Command, b bool) error {
+				Action: func(ctx context.Context, c *cli.Command, b bool) (err error) {
 					if c == c.Root() {
-						cli.ShowRootCommandHelp(c)
+						err = cli.ShowRootCommandHelp(c)
 					} else {
-						cli.ShowSubcommandHelp(c)
+						err = cli.ShowSubcommandHelp(c)
+					}
+					if err != nil {
+						return err
 					}
 					return cli.Exit("", 0)
 				},

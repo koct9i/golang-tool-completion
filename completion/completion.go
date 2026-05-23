@@ -53,9 +53,9 @@ fi
 `, command, handler)
 
 	case "":
-		return "", "", fmt.Errorf("Shell is not specified")
+		return "", "", fmt.Errorf("shell is not specified")
 	default:
-		return "", "", fmt.Errorf("Shell %q is not supported yet. Choose: bash, fish, zsh", shell)
+		return "", "", fmt.Errorf("shell %q is not supported yet, supported: bash, fish, zsh", shell)
 	}
 
 	return scriptPath, script, nil
@@ -73,18 +73,21 @@ func doCompletionScript(writer io.Writer, shell, command, handler string, instal
 			if err != nil {
 				return err
 			}
-			dataHomeDir = filepath.Join(userHomeDir, ".local/share")
+			dataHomeDir = filepath.Join(userHomeDir, ".local", "share")
 		}
 		scriptPath = filepath.Join(dataHomeDir, scriptPath)
 		fmt.Fprintf(writer, "Installing completion script: %v\n", scriptPath)
-		if err = os.WriteFile(scriptPath, []byte(script), 0644); err != nil {
-			return fmt.Errorf("Failed to install completion script: %w", err)
+		//nolint:gosec //0o644
+		if err = os.WriteFile(scriptPath, []byte(script), 0o644); err != nil {
+			return fmt.Errorf("failed to install completion script: %w", err)
 		}
 	} else if _, err = writer.Write([]byte(script)); err != nil {
 		return err
 	}
 	return cli.Exit("", 0)
 }
+
+type CompleteArgumentsFunc func(context.Context, string) map[string]string
 
 func doCompletion(ctx context.Context, c *cli.Command, shell string, completeArgs []string) error {
 	lastCmd := c.Root()
@@ -104,26 +107,27 @@ func doCompletion(ctx context.Context, c *cli.Command, shell string, completeArg
 	result := map[string]string{}
 	if delim := slices.Index(completeArgs, "--"); delim >= 0 && delim != len(completeArgs)-1 {
 		// No completion for pass-through arguments after "--"
-	} else if len(lastArg) > 0 && lastArg[0] == '-' {
+	} else if lastArg != "" && lastArg[0] == '-' {
 		// Complete flags
 		prefix := strings.TrimLeft(lastArg, "-")
 		dash := lastArg[:len(lastArg)-len(prefix)]
 		for _, flag := range lastCmd.Flags {
 			for _, name := range flag.Names() {
-				if strings.HasPrefix(name, prefix) {
-					if len(name) == 1 && len(dash) > 1 {
-						continue
-					}
-					d := dash
-					if len(name) > 1 && len(prefix) == 0 && len(d) == 1 {
-						d = "--"
-					}
-					usage := ""
-					if docFlag, ok := flag.(cli.DocGenerationFlag); ok {
-						usage = docFlag.GetUsage()
-					}
-					result[d+name] = usage
+				if !strings.HasPrefix(name, prefix) {
+					continue
 				}
+				if len(name) == 1 && len(dash) > 1 {
+					continue
+				}
+				d := dash
+				if len(name) > 1 && prefix == "" && len(d) == 1 {
+					d = "--"
+				}
+				usage := ""
+				if docFlag, ok := flag.(cli.DocGenerationFlag); ok {
+					usage = docFlag.GetUsage()
+				}
+				result[d+name] = usage
 			}
 		}
 	} else if len(lastCmd.Commands) != 0 {
@@ -134,7 +138,7 @@ func doCompletion(ctx context.Context, c *cli.Command, shell string, completeArg
 			}
 			if strings.HasPrefix(subCmd.Name, lastArg) {
 				result[subCmd.Name] = subCmd.Usage
-			} else if len(lastArg) > 0 {
+			} else if lastArg != "" {
 				for _, alias := range subCmd.Aliases {
 					if strings.HasPrefix(subCmd.Name, lastArg) {
 						result[alias] = subCmd.Usage
@@ -142,8 +146,8 @@ func doCompletion(ctx context.Context, c *cli.Command, shell string, completeArg
 				}
 			}
 		}
-	} else if completeArguments, ok := lastCmd.Metadata["CompleteArguments"].(func(string) map[string]string); ok {
-		result = completeArguments(lastArg)
+	} else if completeArguments, ok := lastCmd.Metadata["CompleteArguments"].(CompleteArgumentsFunc); ok {
+		result = completeArguments(ctx, lastArg)
 	}
 
 	buffer := bufio.NewWriter(c.Writer)
@@ -166,6 +170,10 @@ func doCompletion(ctx context.Context, c *cli.Command, shell string, completeArg
 		default:
 			fmt.Fprintln(buffer, suggest)
 		}
+	}
+
+	if err := buffer.Flush(); err != nil {
+		return err
 	}
 
 	return cli.Exit("", 0)
