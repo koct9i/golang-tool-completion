@@ -135,9 +135,6 @@ func (m ModCache) completeModulePackage(result map[string]string, pkg, modpath, 
 		prefixpath := filepath.Join(moddir, name) + relpath
 		m.log("package %q moddir %q modname %q name %q prefixpath %q", pkg, moddir, modname, name, prefixpath)
 		m.completePackage(result, pkg, prefixpath)
-		if !strings.HasSuffix(pkg, "/") {
-			// m.completePackage(result, pkg+"/", prefixpath+string(filepath.Separator))
-		}
 	}
 }
 

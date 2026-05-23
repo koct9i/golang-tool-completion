@@ -68,15 +68,6 @@ func buildFlags() []cli.Flag {
 	}
 }
 
-func toolGlobalFlags() []cli.Flag {
-	return []cli.Flag{
-		&cli.StringFlag{Name: "C", Usage: "Change to dir before running the command (must be first flag).", Category: catGeneral},
-		&cli.StringFlag{Name: "overlay", Usage: "Read a JSON config file that provides an overlay for build operations.", Category: catBuild},
-		&cli.BoolFlag{Name: "modcacherw", Usage: "Leave newly-created module cache directories read-write.", Category: catCache},
-		&cli.StringFlag{Name: "modfile", Usage: "Read (and possibly write) an alternate go.mod file.", Category: catModule},
-	}
-}
-
 func testBinaryFlags() []cli.Flag {
 	return []cli.Flag{
 		&cli.StringFlag{Name: "bench", Usage: "Run only benchmarks matching regexp.", Category: catTest},
@@ -437,11 +428,24 @@ func Test() *cli.Command {
 
 func Tool() *cli.Command {
 	return &cli.Command{
-		Name:     "tool",
-		Usage:    "run specified go tool",
-		Metadata: map[string]any{"DocURL": docAnchor("Run_specified_go_tool")},
-		Flags:    toolGlobalFlags(),
-		Action:   noop,
+		Name:      "tool",
+		Usage:     "run specified go tool",
+		ArgsUsage: "command [arguments]...",
+		Description: "Go ships with a number of builtin tools, and additional tools may be defined in the go.mod of the current module.\n" +
+			"With no arguments it prints the list of known tools.\n" +
+			"\n" +
+			"For more about each builtin tool command, see 'go doc cmd/<command>'.",
+		Metadata: map[string]any{
+			"DocURL":            docAnchor("Run_specified_go_tool"),
+			"CompleteArguments": gomodules.CompleteTools,
+		},
+		Flags: []cli.Flag{
+			&cli.StringFlag{Name: "C", Usage: "Change to dir before running the command (must be first flag).", Category: catGeneral},
+			&cli.StringFlag{Name: "overlay", Usage: "Read a JSON config file that provides an overlay for build operations.", Category: catBuild},
+			&cli.BoolFlag{Name: "modcacherw", Usage: "Leave newly-created module cache directories read-write.", Category: catCache},
+			&cli.StringFlag{Name: "modfile", Usage: "Read (and possibly write) an alternate go.mod file.", Category: catModule},
+		},
+		Action: noop,
 	}
 }
 

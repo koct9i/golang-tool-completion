@@ -5,26 +5,18 @@ Shell tab-completion for the `go` command — covering every subcommand, flag, a
 ## Overview
 
 `golang-tool-completion` is a transparent wrapper around the standard `go` tool.
-It models all `go` subcommands, flags and arguments using [urfave/cli](https://github.com/urfave/cli), which gives shells
-enough information to offer rich tab-completion.
-Every invocation is forwarded unchanged to the real `go` binary, so the wrapper has zero impact on day-to-day usage.
+
+It models all `go` subcommands, flags and arguments using [urfave/cli](https://github.com/urfave/cli) to provide help and shell tab-completion.
+All invocation besides `completion` and `--help` are forwarded unchanged to the real `go` binary.
 
 ```
-go build -<TAB>          → lists every build flag with a short description
-go get golang.org/<TAB>  → completes module paths from your local module cache
-go test -run <TAB>       → lists test flags
+go build -h          → prints list of options with description and link to documentation
+go build -<TAB>      → completes command flags with a short description
+go get <TAB>         → completes package paths from cached and trending modules
+go get <pkg>@<TAB>   → completes package version
+go doc <pkg>.<TAB>   → completes package symbols
+go tool <TAB>        → completes tool command name
 ```
-
-## Features
-
-| Feature | Details |
-|---|---|
-| **Full subcommand coverage** | `build`, `test`, `get`, `mod`, `work`, `run`, `install`, `list`, `doc`, `vet`, `fmt`, `generate`, `clean`, `fix`, `env`, `bug`, `telemetry`, `tool`, `version` |
-| **Flag completion** | Every flag for every subcommand with a one-line description |
-| **Package / module completion** | Completes import paths from `GOMODCACHE` (extracted *and* download trees) |
-| **Popular modules** | Augmented with the top modules from [goproxy.cn/stats](https://goproxy.cn/stats/trends/last-30-days) |
-| **Shell support** | bash · fish · zsh |
-| **Zero overhead** | Transparent `exec` hand-off to the real `go` binary after parsing |
 
 ## Installation
 
@@ -32,18 +24,24 @@ go test -run <TAB>       → lists test flags
 go install github.com/koct9i/golang-tool-completion@latest
 ```
 
-Then install the shell completion script for your current shell (`$SHELL` is detected automatically):
+For better `go <command> -help` add shell alias:
 
 ```sh
-go run github.com/koct9i/golang-tool-completion@latest completion --install
+alias go=golang-tool-completion
+```
+
+Install shell completion script for your current shell:
+
+```sh
+golang-tool-completion completion --install
 ```
 
 Or install for a specific shell:
 
 ```sh
-golang-tool-completion completion bash  --install
-golang-tool-completion completion fish  --install
-golang-tool-completion completion zsh   --install
+golang-tool-completion completion --install bash
+golang-tool-completion completion --install fish
+golang-tool-completion completion --install zsh
 ```
 
 Scripts are written to `$XDG_DATA_HOME` (defaults to `~/.local/share`):
@@ -56,17 +54,10 @@ Scripts are written to `$XDG_DATA_HOME` (defaults to `~/.local/share`):
 
 Restart your shell (or `source` the script) to activate completion.
 
-> **Important:** place the wrapper binary first in `$PATH` so it shadows the system `go` binary.
-> The wrapper detects recursion and aborts if the real `go` cannot be found.
-
-## Manual / offline installation
-
-Print the completion script to stdout (no `--install` flag) and save it wherever you like:
+Without `--install` it prints completion script to stdout:
 
 ```sh
-golang-tool-completion completion bash > /etc/bash_completion.d/go
-golang-tool-completion completion fish > ~/.config/fish/completions/go.fish
-golang-tool-completion completion zsh  > "${fpath[1]}/_go"
+golang-tool-completion completion [SHELL]
 ```
 
 ## How it works
@@ -74,12 +65,11 @@ golang-tool-completion completion zsh  > "${fpath[1]}/_go"
 ```
 shell <TAB>
   └─ golang-tool-completion completion --complete <shell> -- <words...>
-       └─ parses argv, walks the command tree, emits one completion per line
-shell displays completions
+       └─ emits completion suggestions
 
 <Enter>
-  └─ golang-tool-completion <command> [flags…]
-       └─ exec(go, original argv)   ← zero overhead, same process
+  └─ golang-tool-completion <command> [flags...]
+       └─ exec(go, original argv)
 ```
 
 Argument completion for `build`, `get`, `install`, `list`, `run`, and similar commands is provided by reading the local module cache:
@@ -87,16 +77,7 @@ Argument completion for `build`, `get`, `install`, `list`, `run`, and similar co
 * **Extracted tree** — directories named `<escaped-module>@<version>/` under `GOMODCACHE`
 * **Download tree** — `cache/download/<escaped-module>/@v/list` files
 
-Popular modules from goproxy.cn are embedded at build time via `//go:embed` and serve as a seed when the cache is cold.
-
-## Development
-
-```sh
-make          # fmt + vet + test + build
-make install  # build, install, and register completion for the current shell
-make lint     # run golangci-lint
-make test     # go test ./...
-```
+Also `golang-tool-completion` embeds list of [1000 trending go modules from goproxy.cn](https://goproxy.cn/stats).
 
 ## License
 

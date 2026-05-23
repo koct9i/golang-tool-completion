@@ -102,8 +102,11 @@ func main() {
 		Name:      filepath.Base(os.Args[0]),
 		Usage:     "Go is a tool for managing Go source code.",
 		ArgsUsage: "[arguments]",
-		Description: "This wrapper defines commands/flags/args for help/validation/completion, but execution is transparent:\n" +
-			"it always runs the system `go` with the original argv.\n",
+		Description: "This wrapper defines commands/flags/args only for help and completion.\n" +
+			"It always executes the system `go` with the original arguments.\n" +
+			"\n" +
+			"To install completion for your shell: `golang-tool-completion completion --install`\n" +
+			"To use it for `go <command> -help` set alias go=golang-tool-completion",
 		Metadata: map[string]any{
 			"DocURL": gotool.DocGoCmd,
 		},

@@ -4,6 +4,8 @@ import (
 	"os/exec"
 	"path"
 	"strings"
+
+	"golang.org/x/mod/module"
 )
 
 func CompleteModules(prefix string) map[string]string {
@@ -11,7 +13,7 @@ func CompleteModules(prefix string) map[string]string {
 		return nil
 	}
 	result := make(map[string]string)
-	CompletePopular(result, prefix)
+	CompleteTrending(result, prefix)
 	NewModCache().CompleteModules(result, prefix)
 	fixupLoneResult(result)
 	return result
@@ -22,7 +24,7 @@ func CompletePackages(prefix string) map[string]string {
 		return nil
 	}
 	result := make(map[string]string)
-	CompletePopular(result, prefix)
+	CompleteTrending(result, prefix)
 	NewModCache().CompletePackages(result, prefix)
 	fixupLoneResult(result)
 	return result
@@ -38,6 +40,12 @@ func CompleteDocPackages(prefix string) map[string]string {
 		NewModCache().CompletePackages(result, prefix)
 		fixupLoneResult(result)
 	}
+	return result
+}
+
+func CompleteTools(prefix string) map[string]string {
+	result := make(map[string]string)
+	completeTools(result, prefix)
 	return result
 }
 
@@ -67,6 +75,30 @@ func completePackageSymbols(result map[string]string, pkg string, prefix string)
 		if kind, tail, found := strings.Cut(line, " "); found && kind != "" && strings.HasPrefix(tail, prefix) {
 			if sep := strings.IndexAny(tail, " ("); sep >= 0 {
 				result[pkg+"."+tail[:sep]] = kind
+			}
+		}
+	}
+}
+
+func completeTools(result map[string]string, prefix string) {
+	// TODO: Forward "--modfile".
+	cmd := exec.Command("go", "tool")
+	output, err := cmd.Output()
+	if err != nil {
+		return
+	}
+	for line := range strings.Lines(string(output)) {
+		tool := strings.TrimSpace(line)
+		if strings.HasPrefix(tool, prefix) {
+			//TODO: Add description for builtin tools.
+			result[tool] = ""
+		}
+		if p, _, ok := module.SplitPathVersion(tool); ok {
+			name := path.Base(p)
+			if strings.HasPrefix(name, prefix) {
+				if _, found := result[name]; !found {
+					result[name] = tool
+				}
 			}
 		}
 	}

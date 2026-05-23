@@ -14,32 +14,32 @@ import (
 	"github.com/urfave/cli/v3"
 )
 
-func generateCompletionScript(program, shell string) (scriptPath string, script string, err error) {
+func generateCompletionScript(shell, command, handler string) (scriptPath string, script string, err error) {
 	switch shell {
 	case "bash":
-		scriptPath = fmt.Sprintf("bash-completion/completions/%s", program)
+		scriptPath = fmt.Sprintf("bash-completion/completions/%s", command)
 		script = fmt.Sprintf(`__%s_complete_bash() {
-  mapfile -t COMPREPLY < <("${COMP_WORDS[0]}" completion --complete bash -- "${COMP_WORDS[@]:1:COMP_CWORD}")
+  mapfile -t COMPREPLY < <("%[2]s" completion --complete bash -- "${COMP_WORDS[@]:1:COMP_CWORD}")
 }
 complete -o bashdefault -o default -F __%[1]s_complete_bash %[1]s
-`, program)
+`, command, handler)
 
 	case "fish":
-		scriptPath = fmt.Sprintf("fish/vendor_completions.d/%s.fish", program)
+		scriptPath = fmt.Sprintf("fish/vendor_completions.d/%s.fish", command)
 		script = fmt.Sprintf(`function __fish_%[1]s_complete
   set -l args (commandline -opc) (commandline -ct)
   set -e args[1]
-  %[1]s completion --complete fish -- $args
+  "%[2]s" completion --complete fish -- $args
 end
-complete -c %[1]s -a "(__fish_%[1]s_complete)"
-`, program)
+complete -a "(__fish_%[1]s_complete) -c "%[1]s"
+`, command, handler)
 
 	case "zsh":
-		scriptPath = fmt.Sprintf("zsh/site-functions/_%s", program)
+		scriptPath = fmt.Sprintf("zsh/site-functions/_%s", command)
 		script = fmt.Sprintf(`#compdef %[1]s
 _%[1]s() {
   local -a completions
-  completions=(${(f)"$("${words[1]}" completion --complete zsh -- "${words[@]:1:$((CURRENT-1))}")"})
+  completions=(${(f)"$("%[2]s" completion --complete zsh -- "${words[@]:1:$((CURRENT-1))}")"})
   if (( ${#completions[@]} )); then
     _describe 'completions' completions
   else
@@ -50,7 +50,7 @@ compdef _%[1]s %[1]s
 if [ "$funcstack[1]" = "_%[1]s" ]; then
   _%[1]s
 fi
-`, program)
+`, command, handler)
 
 	case "":
 		return "", "", fmt.Errorf("Shell is not specified")
@@ -61,8 +61,8 @@ fi
 	return scriptPath, script, nil
 }
 
-func doCompletionScript(writer io.Writer, app, shell string, install bool) error {
-	scriptPath, script, err := generateCompletionScript(app, shell)
+func doCompletionScript(writer io.Writer, shell, command, handler string, install bool) error {
+	scriptPath, script, err := generateCompletionScript(shell, command, handler)
 	if err != nil {
 		return err
 	}
@@ -174,6 +174,7 @@ func doCompletion(ctx context.Context, c *cli.Command, shell string, completeArg
 func Completion() *cli.Command {
 	var complete bool
 	var install bool
+	var command string
 	var shell string
 	var completeArgs []string
 	return &cli.Command{
@@ -191,6 +192,12 @@ func Completion() *cli.Command {
 				Destination: &install,
 				Usage:       "Install shell completion script into $XDG_DATA_HOME, ~/.local/share/...",
 			},
+			&cli.StringFlag{
+				Name:        "command",
+				Destination: &command,
+				Value:       "go",
+				Usage:       "Command name to complete",
+			},
 		},
 		Arguments: []cli.Argument{
 			&cli.StringArg{Name: "shell", Destination: &shell},
@@ -201,7 +208,7 @@ func Completion() *cli.Command {
 				shell = filepath.Base(os.Getenv("SHELL"))
 			}
 			if !complete {
-				return doCompletionScript(c.Writer, c.Root().Name, shell, install)
+				return doCompletionScript(c.Writer, shell, command, c.Root().Name, install)
 			}
 			return doCompletion(ctx, c, shell, completeArgs)
 		},
