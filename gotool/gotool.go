@@ -438,6 +438,7 @@ func Tool() *cli.Command {
 		Metadata: map[string]any{
 			"DocURL":            docAnchor("Run_specified_go_tool"),
 			"CompleteArguments": gomodules.CompleteTools,
+			"MaxCompleteArgs":   1,
 		},
 		Flags: []cli.Flag{
 			&cli.StringFlag{Name: "C", Usage: "Change to dir before running the command (must be first flag).", Category: catGeneral},

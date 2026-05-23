@@ -93,9 +93,11 @@ type CompleteArgumentsFunc = func(context.Context, string) map[string]string
 
 func doCompletion(ctx context.Context, c *cli.Command, shell string, completeArgs []string) error {
 	lastCmd := c.Root()
-	for _, arg := range completeArgs {
+	lastCmdIdx := 0
+	for i, arg := range completeArgs {
 		if subCmd := lastCmd.Command(arg); subCmd != nil {
 			lastCmd = subCmd
+			lastCmdIdx = i + 1
 		} else {
 			break
 		}
@@ -105,6 +107,10 @@ func doCompletion(ctx context.Context, c *cli.Command, shell string, completeArg
 	if len(completeArgs) > 0 {
 		lastArg = completeArgs[len(completeArgs)-1]
 	}
+
+	// positionalCount is the number of positional (non-subcommand) args already
+	// typed before the current completion point.
+	positionalCount := max(0, len(completeArgs)-1-lastCmdIdx)
 
 	result := map[string]string{}
 	if delim := slices.Index(completeArgs, "--"); delim >= 0 && delim != len(completeArgs)-1 {
@@ -149,7 +155,10 @@ func doCompletion(ctx context.Context, c *cli.Command, shell string, completeArg
 			}
 		}
 	} else if completeArguments, ok := lastCmd.Metadata["CompleteArguments"].(CompleteArgumentsFunc); ok {
-		result = completeArguments(ctx, lastArg)
+		maxArgs, hasMax := lastCmd.Metadata["MaxCompleteArgs"].(int)
+		if !hasMax || positionalCount < maxArgs {
+			result = completeArguments(ctx, lastArg)
+		}
 	}
 
 	buffer := bufio.NewWriter(c.Writer)
