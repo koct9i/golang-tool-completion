@@ -6,6 +6,7 @@ import (
 
 	"github.com/urfave/cli/v3"
 
+	"github.com/koct9i/golang-tool-completion/completion"
 	"github.com/koct9i/golang-tool-completion/gomodules"
 )
 
@@ -30,9 +31,16 @@ func docAnchor(h string) string {
 	return DocGoCmd + "#hdr-" + strings.ReplaceAll(h, " ", "_")
 }
 
+func ChangeDirectoryFlag() cli.Flag {
+	return &cli.StringFlag{
+		Name:        "C",
+		Usage:       "Change to dir before running the command (must be first flag).",
+		Destination: &gomodules.ChangeDirectory,
+	}
+}
+
 func buildFlags() []cli.Flag {
 	return []cli.Flag{
-		&cli.StringFlag{Name: "C", Usage: "Change to dir before running the command (must be first flag).", Category: catGeneral},
 		&cli.BoolFlag{Name: "a", Usage: "Force rebuilding of packages that are already up-to-date.", Category: catCache},
 		&cli.BoolFlag{Name: "n", Usage: "Print the commands but do not run them.", Category: catOutput},
 		&cli.IntFlag{Name: "p", Usage: "The number of programs that can be run in parallel.", Category: catBuild},
@@ -57,7 +65,12 @@ func buildFlags() []cli.Flag {
 		&cli.BoolFlag{Name: "linkshared", Usage: "Link against shared libraries created with -buildmode=shared.", Category: catBuild},
 		&cli.StringFlag{Name: "mod", Usage: "Module download mode: readonly, vendor, or mod.", Category: catModule},
 		&cli.BoolFlag{Name: "modcacherw", Usage: "Leave newly-created module cache directories read-write.", Category: catCache},
-		&cli.StringFlag{Name: "modfile", Usage: "Read (and possibly write) an alternate go.mod file.", Category: catModule},
+		&cli.StringFlag{
+			Name:        "modfile",
+			Usage:       "Read (and possibly write) an alternate go.mod file.",
+			Category:    catModule,
+			Destination: &gomodules.ModFile,
+		},
 		&cli.StringFlag{Name: "overlay", Usage: "Read a JSON config file that provides an overlay for build operations.", Category: catBuild},
 		&cli.StringFlag{Name: "pgo", Usage: `PGO profile file ("auto","off", or path).`, Category: catBuild},
 		&cli.StringFlag{Name: "pkgdir", Usage: "Install and load packages from dir instead of the usual locations.", Category: catBuild},
@@ -126,7 +139,7 @@ func Bug() *cli.Command {
 		Description: "",
 		ArgsUsage:   "",
 		Arguments:   nil,
-		Action:      noop,
+		Action:      DummyAction,
 	}
 }
 
@@ -144,7 +157,7 @@ func Build() *cli.Command {
 		}, buildFlags()...),
 		ArgsUsage: "[packages]",
 		Arguments: []cli.Argument{argPackage()},
-		Action:    noop,
+		Action:    DummyAction,
 	}
 }
 
@@ -166,7 +179,7 @@ func Clean() *cli.Command {
 		}, buildFlags()...),
 		ArgsUsage: "[packages]",
 		Arguments: []cli.Argument{argPackage()},
-		Action:    noop,
+		Action:    DummyAction,
 	}
 }
 
@@ -191,7 +204,7 @@ func Doc() *cli.Command {
 		Arguments: []cli.Argument{
 			&cli.StringArgs{Name: "query", UsageText: "Package, symbol, method or field", Min: 0, Max: -1},
 		},
-		Action: noop,
+		Action: DummyAction,
 	}
 }
 
@@ -210,7 +223,7 @@ func Env() *cli.Command {
 		Arguments: []cli.Argument{
 			&cli.StringArgs{Name: "variable", UsageText: "Environment variable names (e.g. GOPATH, GOMOD)", Min: 0, Max: -1},
 		},
-		Action: noop,
+		Action: DummyAction,
 	}
 }
 
@@ -227,7 +240,7 @@ func Fix() *cli.Command {
 		},
 		ArgsUsage: "[packages]",
 		Arguments: []cli.Argument{argPackage()},
-		Action:    noop,
+		Action:    DummyAction,
 	}
 }
 
@@ -245,7 +258,7 @@ func Fmt() *cli.Command {
 		},
 		ArgsUsage: "[packages]",
 		Arguments: []cli.Argument{argPackage()},
-		Action:    noop,
+		Action:    DummyAction,
 	}
 }
 
@@ -269,7 +282,7 @@ func Generate() *cli.Command {
 			argPackage(),
 			&cli.StringArgs{Name: "file.go", UsageText: ""},
 		},
-		Action: noop,
+		Action: DummyAction,
 	}
 }
 
@@ -288,7 +301,7 @@ func Get() *cli.Command {
 		}, buildFlags()...),
 		ArgsUsage: "[package@[version|latest|patch|none]]...",
 		Arguments: []cli.Argument{argPackageVersion()},
-		Action:    noop,
+		Action:    DummyAction,
 	}
 }
 
@@ -298,23 +311,23 @@ func Help() *cli.Command {
 		Usage:    "show information about command or topic",
 		Metadata: map[string]any{"DocURL": DocGoCmd},
 		Commands: []*cli.Command{
-			{Name: "buildconstraint", Usage: "build constraints", Metadata: map[string]any{"DocURL": DocGoCmd}, Action: noop},
-			{Name: "buildmode", Usage: "build modes", Metadata: map[string]any{"DocURL": DocGoCmd}, Action: noop},
-			{Name: "c", Usage: "calling between Go and C", Metadata: map[string]any{"DocURL": DocGoCmd}, Action: noop},
-			{Name: "cache", Usage: "build and test caching", Metadata: map[string]any{"DocURL": DocGoCmd}, Action: noop},
-			{Name: "environment", Usage: "environment variables", Metadata: map[string]any{"DocURL": DocGoCmd}, Action: noop},
-			{Name: "filetype", Usage: "file types", Metadata: map[string]any{"DocURL": DocGoCmd}, Action: noop},
-			{Name: "go.mod", Usage: "the go.mod file", Metadata: map[string]any{"DocURL": DocGoCmd}, Action: noop},
-			{Name: "gopath", Usage: "GOPATH environment variable", Metadata: map[string]any{"DocURL": DocGoCmd}, Action: noop},
-			{Name: "goproxy", Usage: "module proxy protocol", Metadata: map[string]any{"DocURL": DocGoCmd}, Action: noop},
-			{Name: "importpath", Usage: "import path syntax", Metadata: map[string]any{"DocURL": DocGoCmd}, Action: noop},
-			{Name: "modules", Usage: "modules, module versions, and more", Metadata: map[string]any{"DocURL": DocGoCmd}, Action: noop},
-			{Name: "module-auth", Usage: "module authentication using go.sum", Metadata: map[string]any{"DocURL": DocGoCmd}, Action: noop},
-			{Name: "packages", Usage: "package lists and patterns", Metadata: map[string]any{"DocURL": DocGoCmd}, Action: noop},
-			{Name: "private", Usage: "configuration for downloading non-public code", Metadata: map[string]any{"DocURL": DocGoCmd}, Action: noop},
-			{Name: "testflag", Usage: "testing flags", Metadata: map[string]any{"DocURL": DocGoCmd}, Action: noop},
-			{Name: "testfunc", Usage: "testing functions", Metadata: map[string]any{"DocURL": DocGoCmd}, Action: noop},
-			{Name: "vcs", Usage: "controlling version control with GOVCS", Metadata: map[string]any{"DocURL": DocGoCmd}, Action: noop},
+			{Name: "buildconstraint", Usage: "build constraints", Metadata: map[string]any{"DocURL": DocGoCmd}, Action: DummyAction},
+			{Name: "buildmode", Usage: "build modes", Metadata: map[string]any{"DocURL": DocGoCmd}, Action: DummyAction},
+			{Name: "c", Usage: "calling between Go and C", Metadata: map[string]any{"DocURL": DocGoCmd}, Action: DummyAction},
+			{Name: "cache", Usage: "build and test caching", Metadata: map[string]any{"DocURL": DocGoCmd}, Action: DummyAction},
+			{Name: "environment", Usage: "environment variables", Metadata: map[string]any{"DocURL": DocGoCmd}, Action: DummyAction},
+			{Name: "filetype", Usage: "file types", Metadata: map[string]any{"DocURL": DocGoCmd}, Action: DummyAction},
+			{Name: "go.mod", Usage: "the go.mod file", Metadata: map[string]any{"DocURL": DocGoCmd}, Action: DummyAction},
+			{Name: "gopath", Usage: "GOPATH environment variable", Metadata: map[string]any{"DocURL": DocGoCmd}, Action: DummyAction},
+			{Name: "goproxy", Usage: "module proxy protocol", Metadata: map[string]any{"DocURL": DocGoCmd}, Action: DummyAction},
+			{Name: "importpath", Usage: "import path syntax", Metadata: map[string]any{"DocURL": DocGoCmd}, Action: DummyAction},
+			{Name: "modules", Usage: "modules, module versions, and more", Metadata: map[string]any{"DocURL": DocGoCmd}, Action: DummyAction},
+			{Name: "module-auth", Usage: "module authentication using go.sum", Metadata: map[string]any{"DocURL": DocGoCmd}, Action: DummyAction},
+			{Name: "packages", Usage: "package lists and patterns", Metadata: map[string]any{"DocURL": DocGoCmd}, Action: DummyAction},
+			{Name: "private", Usage: "configuration for downloading non-public code", Metadata: map[string]any{"DocURL": DocGoCmd}, Action: DummyAction},
+			{Name: "testflag", Usage: "testing flags", Metadata: map[string]any{"DocURL": DocGoCmd}, Action: DummyAction},
+			{Name: "testfunc", Usage: "testing functions", Metadata: map[string]any{"DocURL": DocGoCmd}, Action: DummyAction},
+			{Name: "vcs", Usage: "controlling version control with GOVCS", Metadata: map[string]any{"DocURL": DocGoCmd}, Action: DummyAction},
 		},
 		UsageText: "go help [command|topic] [subcommand]...",
 		Arguments: []cli.Argument{
@@ -326,13 +339,13 @@ func Help() *cli.Command {
 				commands = append(commands, &cli.Command{
 					Name:   cmd.Name,
 					Usage:  cmd.Usage,
-					Action: noop,
+					Action: DummyAction,
 				})
 			}
 			c.Commands = append(commands, c.Commands...)
 			return ctx, nil
 		},
-		Action: noop,
+		Action: DummyAction,
 	}
 }
 
@@ -347,7 +360,7 @@ func Install() *cli.Command {
 		Flags:     buildFlags(),
 		ArgsUsage: "[package[@version|latest]]...",
 		Arguments: []cli.Argument{argPackageVersion()},
-		Action:    noop,
+		Action:    DummyAction,
 	}
 }
 
@@ -374,7 +387,7 @@ func List() *cli.Command {
 		Arguments: []cli.Argument{
 			&cli.StringArgs{Name: "targets", UsageText: "Packages (or modules when -m)", Min: 0, Max: -1},
 		},
-		Action: noop,
+		Action: DummyAction,
 	}
 }
 
@@ -394,7 +407,7 @@ func Run() *cli.Command {
 			&cli.StringArg{Name: "package", UsageText: "Program package to run"},
 			&cli.StringArgs{Name: "arguments", UsageText: "Arguments passed to the compiled program", Min: 0, Max: -1},
 		},
-		Action: noop,
+		Action: DummyAction,
 	}
 }
 
@@ -407,7 +420,7 @@ func Telemetry() *cli.Command {
 		Arguments: []cli.Argument{
 			&cli.StringArgs{Name: "setting", UsageText: "Optional: off | local | on", Min: 0, Max: 1},
 		},
-		Action: noop,
+		Action: DummyAction,
 	}
 }
 
@@ -422,7 +435,7 @@ func Test() *cli.Command {
 		Flags:     append(buildFlags(), testBinaryFlags()...),
 		ArgsUsage: "[packages] [build/test flags] [test binary flags]",
 		Arguments: []cli.Argument{argPackage()},
-		Action:    noop,
+		Action:    DummyAction,
 	}
 }
 
@@ -440,12 +453,25 @@ func Tool() *cli.Command {
 			"CompleteArguments": gomodules.CompleteTools,
 		},
 		Flags: []cli.Flag{
-			&cli.StringFlag{Name: "C", Usage: "Change to dir before running the command (must be first flag).", Category: catGeneral},
+			&cli.StringFlag{
+				Name:        "C",
+				Usage:       "Change to dir before running the command (must be first flag).",
+				Category:    catGeneral,
+				Destination: &gomodules.ChangeDirectory,
+			},
 			&cli.StringFlag{Name: "overlay", Usage: "Read a JSON config file that provides an overlay for build operations.", Category: catBuild},
 			&cli.BoolFlag{Name: "modcacherw", Usage: "Leave newly-created module cache directories read-write.", Category: catCache},
-			&cli.StringFlag{Name: "modfile", Usage: "Read (and possibly write) an alternate go.mod file.", Category: catModule},
+			&cli.StringFlag{
+				Name:        "modfile",
+				Usage:       "Read (and possibly write) an alternate go.mod file.",
+				Category:    catModule,
+				Destination: &gomodules.ModFile,
+			},
 		},
-		Action: noop,
+		Action: DummyAction,
+		OnUsageError: func(ctx context.Context, cmd *cli.Command, err error, isSubcommand bool) error {
+			return err
+		},
 	}
 }
 
@@ -463,7 +489,7 @@ func Version() *cli.Command {
 		Arguments: []cli.Argument{
 			&cli.StringArgs{Name: "file", UsageText: "Go binaries to inspect", Min: 0, Max: -1},
 		},
-		Action: noop,
+		Action: DummyAction,
 	}
 }
 
@@ -480,7 +506,7 @@ func Vet() *cli.Command {
 		}, buildFlags()...),
 		ArgsUsage: "[package]...",
 		Arguments: []cli.Argument{argPackage()},
-		Action:    noop,
+		Action:    DummyAction,
 	}
 }
 
@@ -501,7 +527,7 @@ func Mod() *cli.Command {
 			ModVerify(),
 			ModWhy(),
 		},
-		Action: noop,
+		Action: DummyAction,
 	}
 }
 
@@ -519,7 +545,7 @@ func ModDownload() *cli.Command {
 		},
 		ArgsUsage: "package[@version]...",
 		Arguments: []cli.Argument{argPackageVersion()},
-		Action:    noop,
+		Action:    DummyAction,
 	}
 }
 
@@ -549,7 +575,7 @@ func ModEdit() *cli.Command {
 		Arguments: []cli.Argument{
 			&cli.StringArgs{Name: "go.mod", UsageText: "Optional path to a go.mod file (default: ./go.mod)", Min: 0, Max: 1},
 		},
-		Action: noop,
+		Action: DummyAction,
 	}
 }
 
@@ -558,7 +584,7 @@ func ModGraph() *cli.Command {
 		Name:     "graph",
 		Usage:    "print module requirement graph",
 		Metadata: map[string]any{"DocURL": docAnchor("Print_module_requirement_graph")},
-		Action:   noop,
+		Action:   DummyAction,
 	}
 }
 
@@ -571,7 +597,7 @@ func ModInit() *cli.Command {
 		Arguments: []cli.Argument{
 			&cli.StringArgs{Name: "module-path", UsageText: "Optional module path to initialize", Min: 0, Max: 1},
 		},
-		Action: noop,
+		Action: DummyAction,
 	}
 }
 
@@ -588,7 +614,7 @@ func ModTidy() *cli.Command {
 			&cli.StringFlag{Name: "go", Usage: "Set -go=version for tidy.", Category: catModule},
 			&cli.StringFlag{Name: "compat", Usage: "Set -compat=version for tidy.", Category: catModule},
 		},
-		Action: noop,
+		Action: DummyAction,
 	}
 }
 
@@ -602,7 +628,7 @@ func ModVendor() *cli.Command {
 			&cli.BoolFlag{Name: "v", Usage: "Print names of vendored modules and packages.", Category: catOutput},
 			&cli.StringFlag{Name: "o", Usage: "Output directory.", Category: catOutput},
 		},
-		Action: noop,
+		Action: DummyAction,
 	}
 }
 
@@ -611,7 +637,7 @@ func ModVerify() *cli.Command {
 		Name:     "verify",
 		Usage:    "verify dependencies have expected content",
 		Metadata: map[string]any{"DocURL": docAnchor("Verify_dependencies_have_expected_content")},
-		Action:   noop,
+		Action:   DummyAction,
 	}
 }
 
@@ -628,7 +654,7 @@ func ModWhy() *cli.Command {
 		},
 		ArgsUsage: "package...",
 		Arguments: []cli.Argument{argPackage()},
-		Action:    noop,
+		Action:    DummyAction,
 	}
 }
 
@@ -647,7 +673,7 @@ func Work() *cli.Command {
 			WorkVendor(),
 		},
 		ArgsUsage: "<command> [argument]...",
-		Action:    noop,
+		Action:    DummyAction,
 	}
 }
 
@@ -671,7 +697,7 @@ func WorkEdit() *cli.Command {
 		Arguments: []cli.Argument{
 			&cli.StringArgs{Name: "go.work", UsageText: "Optional path to a go.work file (default: ./go.work)", Min: 0, Max: 1},
 		},
-		Action: noop,
+		Action: DummyAction,
 	}
 }
 
@@ -684,7 +710,7 @@ func WorkInit() *cli.Command {
 		Arguments: []cli.Argument{
 			&cli.StringArgs{Name: "moddir", UsageText: "Module directory to add as use directives", Min: 0, Max: -1},
 		},
-		Action: noop,
+		Action: DummyAction,
 	}
 }
 
@@ -693,7 +719,7 @@ func WorkSync() *cli.Command {
 		Name:     "sync",
 		Usage:    "sync workspace build list to modules",
 		Metadata: map[string]any{"DocURL": docAnchor("Sync_workspace_build_list_to_modules")},
-		Action:   noop,
+		Action:   DummyAction,
 	}
 }
 
@@ -709,7 +735,7 @@ func WorkUse() *cli.Command {
 		Arguments: []cli.Argument{
 			&cli.StringArgs{Name: "moddir", UsageText: "Module directory to add to the workspace", Min: 0, Max: -1},
 		},
-		Action: noop,
+		Action: DummyAction,
 	}
 }
 
@@ -723,10 +749,13 @@ func WorkVendor() *cli.Command {
 			&cli.BoolFlag{Name: "v", Usage: "Print names of vendored modules and packages.", Category: catOutput},
 			&cli.StringFlag{Name: "o", Usage: "Output directory.", Category: catOutput},
 		},
-		Action: noop,
+		Action: DummyAction,
 	}
 }
 
-func noop(ctx context.Context, _ *cli.Command) error {
+func DummyAction(ctx context.Context, c *cli.Command) error {
+	if completion.WithinCompletion {
+		completion.LastCommand = c
+	}
 	return nil
 }

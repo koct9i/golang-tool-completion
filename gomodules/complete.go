@@ -2,11 +2,17 @@ package gomodules
 
 import (
 	"context"
+	"os"
 	"os/exec"
 	"path"
 	"strings"
 
 	"golang.org/x/mod/module"
+)
+
+var (
+	ChangeDirectory string
+	ModFile         string
 )
 
 func CompleteModules(ctx context.Context, prefix string) map[string]string {
@@ -54,8 +60,7 @@ func completeStandardPackages(ctx context.Context, result map[string]string, pre
 	if strings.Contains(prefix, ".") {
 		return
 	}
-	cmd := exec.CommandContext(ctx, "go", "list", "std")
-	output, err := cmd.Output()
+	output, err := runGo(ctx, "list", "std")
 	if err != nil {
 		return
 	}
@@ -67,9 +72,7 @@ func completeStandardPackages(ctx context.Context, result map[string]string, pre
 }
 
 func completePackageSymbols(ctx context.Context, result map[string]string, pkg string, prefix string) {
-	//nolint:gosec //pkg
-	cmd := exec.CommandContext(ctx, "go", "doc", "-short", pkg)
-	output, err := cmd.Output()
+	output, err := runGo(ctx, "doc", "-short", pkg)
 	if err != nil {
 		return
 	}
@@ -83,9 +86,7 @@ func completePackageSymbols(ctx context.Context, result map[string]string, pkg s
 }
 
 func completeTools(ctx context.Context, result map[string]string, prefix string) {
-	// TODO: Forward "--modfile".
-	cmd := exec.CommandContext(ctx, "go", "tool")
-	output, err := cmd.Output()
+	output, err := runGo(ctx, "tool")
 	if err != nil {
 		return
 	}
@@ -115,4 +116,24 @@ func fixupLoneResult(result map[string]string) {
 			break
 		}
 	}
+}
+
+func expandPath(arg string) string {
+	if p, found := strings.CutPrefix(arg, "~/"); found {
+		arg = "${HOME}/" + p
+	}
+	return os.ExpandEnv(arg)
+}
+
+func runGo(ctx context.Context, command string, args ...string) ([]byte, error) {
+	cmd := exec.CommandContext(ctx, "go")
+	cmd.Args = append(cmd.Args, command)
+	if ChangeDirectory != "" {
+		cmd.Args = append(cmd.Args, "-C", expandPath(ChangeDirectory))
+	}
+	if command == "tool" && ModFile != "" {
+		cmd.Args = append(cmd.Args, "-modfile", expandPath(ModFile))
+	}
+	cmd.Args = append(cmd.Args, args...)
+	return cmd.Output()
 }

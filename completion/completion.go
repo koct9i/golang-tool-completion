@@ -14,6 +14,11 @@ import (
 	"github.com/urfave/cli/v3"
 )
 
+var (
+	WithinCompletion bool
+	LastCommand      *cli.Command
+)
+
 func generateCompletionScript(shell, command, handler string) (scriptPath string, script string, err error) {
 	switch shell {
 	case "bash":
@@ -93,17 +98,28 @@ type CompleteArgumentsFunc = func(context.Context, string) map[string]string
 
 func doCompletion(ctx context.Context, c *cli.Command, shell string, completeArgs []string) error {
 	lastCmd := c.Root()
-	for _, arg := range completeArgs {
-		if subCmd := lastCmd.Command(arg); subCmd != nil {
-			lastCmd = subCmd
-		} else {
-			break
-		}
-	}
-
 	var lastArg string
+
 	if len(completeArgs) > 0 {
 		lastArg = completeArgs[len(completeArgs)-1]
+
+		args := append([]string{lastCmd.Name}, completeArgs[:len(completeArgs)-1]...)
+		WithinCompletion = true
+		//nolint:contextcheck //ctx
+		err := lastCmd.Run(context.Background(), args)
+		WithinCompletion = false
+
+		if err == nil && LastCommand != nil {
+			lastCmd = LastCommand
+		} else {
+			for _, arg := range completeArgs {
+				if subCmd := lastCmd.Command(arg); subCmd != nil {
+					lastCmd = subCmd
+				} else if !strings.HasPrefix(arg, "-") {
+					break
+				}
+			}
+		}
 	}
 
 	result := map[string]string{}
@@ -193,7 +209,7 @@ func Completion() *cli.Command {
 	return &cli.Command{
 		Name:      "completion",
 		Usage:     "generate shell completion",
-		ArgsUsage: "[shell] [-- complete args]...",
+		ArgsUsage: "[shell] [-- complete-args]...",
 		Flags: []cli.Flag{
 			&cli.BoolFlag{
 				Name:        "complete",
@@ -217,6 +233,9 @@ func Completion() *cli.Command {
 			&cli.StringArgs{Name: "complete-args", Destination: &completeArgs, Max: -1},
 		},
 		Action: func(ctx context.Context, c *cli.Command) error {
+			if WithinCompletion {
+				return nil
+			}
 			if shell == "" {
 				shell = filepath.Base(os.Getenv("SHELL"))
 			}

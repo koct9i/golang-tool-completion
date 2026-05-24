@@ -110,11 +110,15 @@ func main() {
 			"DocURL": gotool.DocGoCmd,
 		},
 		Flags: []cli.Flag{
+			gotool.ChangeDirectoryFlag(),
 			&cli.BoolFlag{
 				Name:    "help",
 				Aliases: []string{"h"},
 				Usage:   "show help",
 				Action: func(ctx context.Context, c *cli.Command, b bool) (err error) {
+					if completion.WithinCompletion {
+						return nil
+					}
 					if c == c.Root() {
 						err = cli.ShowRootCommandHelp(c)
 					} else {
@@ -150,9 +154,7 @@ func main() {
 			gotool.Vet(),
 			completion.Completion(),
 		},
-		Action: func(ctx context.Context, c *cli.Command) error {
-			return nil
-		},
+		Action:         gotool.DummyAction,
 		HideHelp:       true,
 		ExitErrHandler: func(ctx context.Context, c *cli.Command, err error) {},
 	}
