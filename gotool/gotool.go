@@ -113,21 +113,27 @@ func testBinaryFlags() []cli.Flag {
 	}
 }
 
+func argModules() cli.Argument {
+	return &completion.Argument{
+		Name:       "package",
+		UsageText:  "Package with version, Documentation: " + docAnchor("Package_lists_and_patterns"),
+		DoComplete: gomodules.CompleteModules,
+	}
+}
+
 func argPackage() cli.Argument {
-	return &cli.StringArgs{
-		Name:      "package",
-		UsageText: "Package, Documentation: " + docAnchor("Package_lists_and_patterns"),
-		Min:       0,
-		Max:       -1,
+	return &completion.Argument{
+		Name:       "package",
+		UsageText:  "Package, Documentation: " + docAnchor("Package_lists_and_patterns"),
+		DoComplete: gomodules.CompletePackages,
 	}
 }
 
 func argPackageVersion() cli.Argument {
-	return &cli.StringArgs{
-		Name:      "package",
-		UsageText: "Package with version, Documentation: " + docAnchor("Package_lists_and_patterns"),
-		Min:       0,
-		Max:       -1,
+	return &completion.Argument{
+		Name:       "package",
+		UsageText:  "Package with version, Documentation: " + docAnchor("Package_lists_and_patterns"),
+		DoComplete: gomodules.CompletePackages,
 	}
 }
 
@@ -148,8 +154,7 @@ func Build() *cli.Command {
 		Name:  "build",
 		Usage: "compile packages and dependencies",
 		Metadata: map[string]any{
-			"DocURL":            docAnchor("Compile_packages_and_dependencies"),
-			"CompleteArguments": gomodules.CompletePackages,
+			"DocURL": docAnchor("Compile_packages_and_dependencies"),
 		},
 		Description: "",
 		Flags: append([]cli.Flag{
@@ -166,8 +171,7 @@ func Clean() *cli.Command {
 		Name:  "clean",
 		Usage: "remove object files and cached files",
 		Metadata: map[string]any{
-			"DocURL":            docAnchor("Remove_object_files_and_cached_files"),
-			"CompleteArguments": gomodules.CompletePackages,
+			"DocURL": docAnchor("Remove_object_files_and_cached_files"),
 		},
 		Flags: append([]cli.Flag{
 			&cli.BoolFlag{Name: "i", Usage: "Remove the installed packages for the named targets.", Category: catCache},
@@ -188,8 +192,7 @@ func Doc() *cli.Command {
 		Name:  "doc",
 		Usage: "show documentation for package or symbol",
 		Metadata: map[string]any{
-			"DocURL":            docAnchor("Show_documentation_for_package_or_symbol"),
-			"CompleteArguments": gomodules.CompleteDocPackages,
+			"DocURL": docAnchor("Show_documentation_for_package_or_symbol"),
 		},
 		Flags: []cli.Flag{
 			&cli.BoolFlag{Name: "all", Usage: "Show all the documentation for the package.", Category: catOutput},
@@ -202,7 +205,11 @@ func Doc() *cli.Command {
 		},
 		ArgsUsage: "package[.symbol[.methodOrField]]",
 		Arguments: []cli.Argument{
-			&cli.StringArgs{Name: "query", UsageText: "Package, symbol, method or field", Min: 0, Max: -1},
+			&completion.Argument{
+				Name:       "query",
+				UsageText:  "Package, symbol, method or field",
+				DoComplete: gomodules.CompleteDocPackages,
+			},
 		},
 		Action: DummyAction,
 	}
@@ -232,8 +239,7 @@ func Fix() *cli.Command {
 		Name:  "fix",
 		Usage: "update packages to use new APIs",
 		Metadata: map[string]any{
-			"DocURL":            docAnchor("Update_packages_to_use_new_APIs"),
-			"CompleteArguments": gomodules.CompletePackages,
+			"DocURL": docAnchor("Update_packages_to_use_new_APIs"),
 		},
 		Flags: []cli.Flag{
 			&cli.StringFlag{Name: "fix", Usage: "Comma-separated list of fixes to run.", Category: catGeneral},
@@ -249,8 +255,7 @@ func Fmt() *cli.Command {
 		Name:  "fmt",
 		Usage: "gofmt (reformat) package sources",
 		Metadata: map[string]any{
-			"DocURL":            docAnchor("Gofmt__reformat__package_sources"),
-			"CompleteArguments": gomodules.CompletePackages,
+			"DocURL": docAnchor("Gofmt__reformat__package_sources"),
 		},
 		Flags: []cli.Flag{
 			&cli.BoolFlag{Name: "n", Usage: "Print commands that would be executed.", Category: catOutput},
@@ -267,8 +272,7 @@ func Generate() *cli.Command {
 		Name:  "generate",
 		Usage: "generate Go files by processing source",
 		Metadata: map[string]any{
-			"DocURL":            docAnchor("Generate_Go_files_by_processing_source"),
-			"CompleteArguments": gomodules.CompletePackages,
+			"DocURL": docAnchor("Generate_Go_files_by_processing_source"),
 		},
 		Flags: []cli.Flag{
 			&cli.StringFlag{Name: "run", Usage: "Run only generators matching the regexp.", Category: catGeneral},
@@ -291,8 +295,7 @@ func Get() *cli.Command {
 		Name:  "get",
 		Usage: "add dependencies to current module and install them",
 		Metadata: map[string]any{
-			"DocURL":            docAnchor("Add_dependencies_to_current_module_and_install_them"),
-			"CompleteArguments": gomodules.CompletePackages,
+			"DocURL": docAnchor("Add_dependencies_to_current_module_and_install_them"),
 		},
 		Flags: append([]cli.Flag{
 			&cli.BoolFlag{Name: "t", Usage: "Also download test dependencies.", Category: catModule},
@@ -354,8 +357,7 @@ func Install() *cli.Command {
 		Name:  "install",
 		Usage: "compile and install packages and dependencies",
 		Metadata: map[string]any{
-			"DocURL":            docAnchor("Compile_and_install_packages_and_dependencies"),
-			"CompleteArguments": gomodules.CompletePackages,
+			"DocURL": docAnchor("Compile_and_install_packages_and_dependencies"),
 		},
 		Flags:     buildFlags(),
 		ArgsUsage: "[package[@version|latest]]...",
@@ -369,8 +371,7 @@ func List() *cli.Command {
 		Name:  "list",
 		Usage: "list packages or modules",
 		Metadata: map[string]any{
-			"DocURL":            docAnchor("List_packages_or_modules"),
-			"CompleteArguments": gomodules.CompletePackages,
+			"DocURL": docAnchor("List_packages_or_modules"),
 		},
 		Flags: append([]cli.Flag{
 			&cli.BoolFlag{Name: "deps", Usage: "List dependencies of each package.", Category: catGeneral},
@@ -396,16 +397,25 @@ func Run() *cli.Command {
 		Name:  "run",
 		Usage: "compile and run Go program",
 		Metadata: map[string]any{
-			"DocURL":            docAnchor("Compile_and_run_Go_program"),
-			"CompleteArguments": gomodules.CompletePackages,
+			"DocURL": docAnchor("Compile_and_run_Go_program"),
 		},
 		Flags: append([]cli.Flag{
 			&cli.StringFlag{Name: "exec", Usage: "Run the generated binary under xprog (like 'time').", Category: catTool},
 		}, buildFlags()...),
 		ArgsUsage: "package[@version] [arguments...]",
 		Arguments: []cli.Argument{
-			&cli.StringArg{Name: "package", UsageText: "Program package to run"},
-			&cli.StringArgs{Name: "arguments", UsageText: "Arguments passed to the compiled program", Min: 0, Max: -1},
+			&completion.Argument{
+				Name:       "package",
+				UsageText:  "Program package to run",
+				DoComplete: gomodules.CompletePackages,
+			},
+			&completion.Argument{
+				Name:      "arguments",
+				UsageText: "Arguments passed to the compiled program",
+				DoComplete: func(ctx context.Context, s string) map[string]string {
+					return nil
+				},
+			},
 		},
 		Action: DummyAction,
 	}
@@ -429,8 +439,7 @@ func Test() *cli.Command {
 		Name:  "test",
 		Usage: "test packages",
 		Metadata: map[string]any{
-			"DocURL":            docAnchor("Test_packages"),
-			"CompleteArguments": gomodules.CompletePackages,
+			"DocURL": docAnchor("Test_packages"),
 		},
 		Flags:     append(buildFlags(), testBinaryFlags()...),
 		ArgsUsage: "[packages] [build/test flags] [test binary flags]",
@@ -449,8 +458,7 @@ func Tool() *cli.Command {
 			"\n" +
 			"For more about each builtin tool command, see 'go doc cmd/<command>'.",
 		Metadata: map[string]any{
-			"DocURL":            docAnchor("Run_specified_go_tool"),
-			"CompleteArguments": gomodules.CompleteTools,
+			"DocURL": docAnchor("Run_specified_go_tool"),
 		},
 		Flags: []cli.Flag{
 			&cli.StringFlag{
@@ -466,6 +474,18 @@ func Tool() *cli.Command {
 				Usage:       "Read (and possibly write) an alternate go.mod file.",
 				Category:    catModule,
 				Destination: &gomodules.ModFile,
+			},
+		},
+		Arguments: []cli.Argument{
+			&completion.Argument{
+				Name:       "command",
+				UsageText:  "",
+				DoComplete: gomodules.CompleteTools,
+			},
+			&completion.Argument{
+				Name:       "arguments",
+				UsageText:  "",
+				DoComplete: func(ctx context.Context, s string) map[string]string { return nil },
 			},
 		},
 		Action: DummyAction,
@@ -498,8 +518,7 @@ func Vet() *cli.Command {
 		Name:  "vet",
 		Usage: "report likely mistakes in packages",
 		Metadata: map[string]any{
-			"DocURL":            docAnchor("Report_likely_mistakes_in_packages"),
-			"CompleteArguments": gomodules.CompletePackages,
+			"DocURL": docAnchor("Report_likely_mistakes_in_packages"),
 		},
 		Flags: append([]cli.Flag{
 			&cli.StringFlag{Name: "vettool", Usage: "Use a different analysis tool.", Category: catTool},
@@ -536,15 +555,14 @@ func ModDownload() *cli.Command {
 		Name:  "download",
 		Usage: "download modules to local cache",
 		Metadata: map[string]any{
-			"DocURL":            docAnchor("Download_modules_to_local_cache"),
-			"CompleteArguments": gomodules.CompleteModules,
+			"DocURL": docAnchor("Download_modules_to_local_cache"),
 		},
 		Flags: []cli.Flag{
 			&cli.BoolFlag{Name: "json", Usage: "Print JSON output.", Category: catOutput},
 			&cli.BoolFlag{Name: "x", Usage: "Print commands as they are executed.", Category: catOutput},
 		},
 		ArgsUsage: "package[@version]...",
-		Arguments: []cli.Argument{argPackageVersion()},
+		Arguments: []cli.Argument{argModules()},
 		Action:    DummyAction,
 	}
 }
@@ -646,8 +664,7 @@ func ModWhy() *cli.Command {
 		Name:  "why",
 		Usage: "explain why packages or modules are needed",
 		Metadata: map[string]any{
-			"DocURL":            docAnchor("Explain_why_packages_or_modules_are_needed"),
-			"CompleteArguments": gomodules.CompletePackages,
+			"DocURL": docAnchor("Explain_why_packages_or_modules_are_needed"),
 		},
 		Flags: []cli.Flag{
 			&cli.BoolFlag{Name: "m", Usage: "Treat arguments as modules.", Category: catModule},

@@ -94,7 +94,37 @@ func doCompletionScript(writer io.Writer, shell, command, handler string, instal
 	return cli.Exit("", 0)
 }
 
-type CompleteArgumentsFunc = func(context.Context, string) map[string]string
+type Completor interface {
+	Complete(ctx context.Context, prefix string) map[string]string
+}
+
+type Argument struct {
+	Name       string
+	UsageText  string
+	DoComplete func(context.Context, string) map[string]string
+}
+
+var _ Completor = (*Argument)(nil)
+
+func (a *Argument) HasName(s string) bool {
+	return s == a.Name
+}
+
+func (a *Argument) Usage() string {
+	return a.UsageText
+}
+
+func (a *Argument) Parse(s []string) ([]string, error) {
+	return s, nil
+}
+
+func (a *Argument) Get() any {
+	return nil
+}
+
+func (a *Argument) Complete(ctx context.Context, prefix string) map[string]string {
+	return a.DoComplete(ctx, prefix)
+}
 
 func doCompletion(ctx context.Context, c *cli.Command, shell string, completeArgs []string) error {
 	lastCmd := c.Root()
@@ -103,7 +133,11 @@ func doCompletion(ctx context.Context, c *cli.Command, shell string, completeArg
 	if len(completeArgs) > 0 {
 		lastArg = completeArgs[len(completeArgs)-1]
 
-		args := append([]string{lastCmd.Name}, completeArgs[:len(completeArgs)-1]...)
+		args := append([]string{lastCmd.Name}, completeArgs...)
+		if strings.HasPrefix(args[len(args)-1], "-") {
+			args = args[:len(args)-1]
+		}
+
 		WithinCompletion = true
 		//nolint:contextcheck //ctx
 		err := lastCmd.Run(context.Background(), args)
@@ -158,14 +192,17 @@ func doCompletion(ctx context.Context, c *cli.Command, shell string, completeArg
 				result[subCmd.Name] = subCmd.Usage
 			} else if lastArg != "" {
 				for _, alias := range subCmd.Aliases {
-					if strings.HasPrefix(subCmd.Name, lastArg) {
+					if strings.HasPrefix(alias, lastArg) {
 						result[alias] = subCmd.Usage
 					}
 				}
 			}
 		}
-	} else if completeArguments, ok := lastCmd.Metadata["CompleteArguments"].(CompleteArgumentsFunc); ok {
-		result = completeArguments(ctx, lastArg)
+	} else if args := lastCmd.Args().Slice(); len(args) > 0 && len(lastCmd.Arguments) > 0 {
+		lastArg := lastCmd.Arguments[min(len(args)-1, len(lastCmd.Arguments)-1)]
+		if c, ok := lastArg.(Completor); ok {
+			result = c.Complete(ctx, args[len(args)-1])
+		}
 	}
 
 	buffer := bufio.NewWriter(c.Writer)
