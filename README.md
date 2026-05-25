@@ -7,6 +7,7 @@ Shell tab-completion for the `go` command — covering every subcommand, flag, a
 `golang-tool-completion` is a transparent wrapper around the standard `go` tool.
 
 It models all `go` subcommands, flags and arguments using [urfave/cli](https://github.com/urfave/cli) to provide help and shell tab-completion.
+
 All invocation besides `completion` and `--help` are forwarded unchanged to the standard `go` binary.
 
 ```
@@ -67,14 +68,14 @@ shell <TAB>
   └─ golang-tool-completion completion --complete <shell> -- <words...>
        └─ emits completion suggestions
 
-<Enter>
+shell <Enter>
   └─ golang-tool-completion <command> [flags...]
        └─ exec(go, original argv)
 ```
 
 ## Packages
 
-Argument completion for `get`, `install`, `run`, and similar commands fetch package names from:
+Argument completion for `get`, `install`, `run`, and similar commands fetches package names from:
 
 * **Cached modules** — directories named `<module>@<version>/` under `GOMODCACHE`
 * **Trending** — frequently used open-source modules
@@ -82,7 +83,7 @@ Argument completion for `get`, `install`, `run`, and similar commands fetch pack
 List of trending modules is read from `~/.config/golang-tool-completion/trending.txt`,
 fallback is [embedded](gomodules/trending.txt) list of 1000 trending go modules from [goproxy.cn](https://goproxy.cn/stats).
 
-To to disable completion using trending modules: `golang-tool-completion completion --disable-trending`.
+To disable trending modules in completion: `golang-tool-completion completion --disable-trending`.
 
 ## Links
 
