@@ -12,11 +12,15 @@ import (
 	"strings"
 
 	"github.com/urfave/cli/v3"
+
+	"github.com/koct9i/golang-tool-completion/gomodules"
 )
 
 var (
-	WithinCompletion bool
-	LastCommand      *cli.Command
+	WithinCompletion   bool
+	LastCommand        *cli.Command
+	ParsedArguments    []string
+	ArgumentCompletors []Completor
 )
 
 func generateCompletionScript(shell, command, handler string) (scriptPath string, script string, err error) {
@@ -99,9 +103,11 @@ type Completor interface {
 }
 
 type Argument struct {
-	Name       string
-	UsageText  string
-	DoComplete func(context.Context, string) map[string]string
+	Name        string
+	UsageText   string
+	Max         int
+	Destination *string
+	OnComplete  func(context.Context, string) map[string]string
 }
 
 var _ Completor = (*Argument)(nil)
@@ -114,16 +120,34 @@ func (a *Argument) Usage() string {
 	return a.UsageText
 }
 
-func (a *Argument) Parse(s []string) ([]string, error) {
-	return s, nil
-}
-
 func (a *Argument) Get() any {
 	return nil
 }
 
+func (a *Argument) Parse(s []string) ([]string, error) {
+	if a.Max == -1 {
+		ParsedArguments = append(ParsedArguments, s...)
+		for range s {
+			ArgumentCompletors = append(ArgumentCompletors, a)
+		}
+		return nil, nil
+	}
+	if len(s) > 0 {
+		if a.Destination != nil {
+			*a.Destination = s[0]
+		}
+		ParsedArguments = append(ParsedArguments, s[0])
+		ArgumentCompletors = append(ArgumentCompletors, a)
+		return s[1:], nil
+	}
+	return s, nil
+}
+
 func (a *Argument) Complete(ctx context.Context, prefix string) map[string]string {
-	return a.DoComplete(ctx, prefix)
+	if a.OnComplete != nil {
+		return a.OnComplete(ctx, prefix)
+	}
+	return nil
 }
 
 func doCompletion(ctx context.Context, c *cli.Command, shell string, completeArgs []string) error {
@@ -135,7 +159,7 @@ func doCompletion(ctx context.Context, c *cli.Command, shell string, completeArg
 
 		args := append([]string{lastCmd.Name}, completeArgs...)
 		if strings.HasPrefix(args[len(args)-1], "-") {
-			args = args[:len(args)-1]
+			args[len(args)-1] = "--"
 		}
 
 		WithinCompletion = true
@@ -159,7 +183,7 @@ func doCompletion(ctx context.Context, c *cli.Command, shell string, completeArg
 	result := map[string]string{}
 	if delim := slices.Index(completeArgs, "--"); delim >= 0 && delim != len(completeArgs)-1 {
 		// No completion for pass-through arguments after "--"
-	} else if lastArg != "" && lastArg[0] == '-' {
+	} else if lastArg != "" && lastArg[0] == '-' && (lastCmd.StopOnNthArg == nil || len(ParsedArguments) < *lastCmd.StopOnNthArg) {
 		// Complete flags
 		prefix := strings.TrimLeft(lastArg, "-")
 		dash := lastArg[:len(lastArg)-len(prefix)]
@@ -198,11 +222,9 @@ func doCompletion(ctx context.Context, c *cli.Command, shell string, completeArg
 				}
 			}
 		}
-	} else if args := lastCmd.Args().Slice(); len(args) > 0 && len(lastCmd.Arguments) > 0 {
-		lastArg := lastCmd.Arguments[min(len(args)-1, len(lastCmd.Arguments)-1)]
-		if c, ok := lastArg.(Completor); ok {
-			result = c.Complete(ctx, args[len(args)-1])
-		}
+	} else if len(ArgumentCompletors) > 0 && ParsedArguments[len(ParsedArguments)-1] == lastArg {
+		// Complete arguments
+		result = ArgumentCompletors[len(ArgumentCompletors)-1].Complete(ctx, ParsedArguments[len(ParsedArguments)-1])
 	}
 
 	buffer := bufio.NewWriter(c.Writer)
@@ -246,7 +268,7 @@ func Completion() *cli.Command {
 	return &cli.Command{
 		Name:      "completion",
 		Usage:     "generate shell completion",
-		ArgsUsage: "[shell] [-- complete-args]...",
+		ArgsUsage: "[options]... [shell] [-- complete-args]...",
 		Flags: []cli.Flag{
 			&cli.BoolFlag{
 				Name:        "complete",
@@ -263,6 +285,16 @@ func Completion() *cli.Command {
 				Destination: &command,
 				Value:       "go",
 				Usage:       "Command name to complete",
+			},
+			&cli.BoolFlag{
+				Name:  "disable-trending",
+				Usage: "Disable completion using built-in list of trending modules",
+				Action: func(ctx context.Context, c *cli.Command, b bool) error {
+					if err := gomodules.DisableTrending(); err != nil {
+						return err
+					}
+					return cli.Exit("", 0)
+				},
 			},
 		},
 		Arguments: []cli.Argument{

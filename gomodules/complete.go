@@ -13,6 +13,7 @@ import (
 var (
 	ChangeDirectory string
 	ModFile         string
+	DocPackage      string
 )
 
 func CompleteModules(ctx context.Context, prefix string) map[string]string {
@@ -37,22 +38,48 @@ func CompletePackages(ctx context.Context, prefix string) map[string]string {
 	return result
 }
 
-func CompleteDocPackages(ctx context.Context, prefix string) map[string]string {
+func CompleteDependencies(ctx context.Context, prefix string) map[string]string {
+	if strings.HasPrefix(prefix, ".") {
+		return nil
+	}
+	result := make(map[string]string)
+	completeDependencies(ctx, result, prefix)
+	return result
+}
+
+func CompleteDocPackage(ctx context.Context, prefix string) map[string]string {
 	result := make(map[string]string)
 	parent, tail := path.Split(prefix)
-	if pkgname, symbol, ok := strings.Cut(tail, "."); ok {
-		completePackageSymbols(ctx, result, parent+pkgname, symbol)
-	} else if !strings.HasPrefix(prefix, ".") {
+	pkgname, symbol, hasDot := strings.Cut(tail, ".")
+	if hasDot && pkgname != "" {
+		completePackageSymbols(ctx, result, parent+pkgname, symbol, false)
+	}
+	if !strings.HasPrefix(prefix, ".") && (!hasDot || parent == "") {
 		completeStandardPackages(ctx, result, prefix)
-		NewModCache().CompletePackages(result, prefix)
+		completeDependencies(ctx, result, prefix)
+		if !hasDot && parent == "" {
+			completePackageSymbols(ctx, result, ".", tail, true)
+		}
 		fixupLoneResult(result)
 	}
+	return result
+}
+
+func CompleteDocSymbol(ctx context.Context, prefix string) map[string]string {
+	result := make(map[string]string)
+	completePackageSymbols(ctx, result, DocPackage, prefix, true)
 	return result
 }
 
 func CompleteTools(ctx context.Context, prefix string) map[string]string {
 	result := make(map[string]string)
 	completeTools(ctx, result, prefix)
+	return result
+}
+
+func CompleteEnv(ctx context.Context, prefix string) map[string]string {
+	result := make(map[string]string)
+	completeEnv(ctx, result, prefix)
 	return result
 }
 
@@ -71,7 +98,22 @@ func completeStandardPackages(ctx context.Context, result map[string]string, pre
 	}
 }
 
-func completePackageSymbols(ctx context.Context, result map[string]string, pkg string, prefix string) {
+func completeDependencies(ctx context.Context, result map[string]string, prefix string) {
+	if strings.HasPrefix(prefix, ".") {
+		return
+	}
+	output, err := runGo(ctx, "list", "-deps")
+	if err != nil {
+		return
+	}
+	for line := range strings.Lines(string(output)) {
+		if strings.HasPrefix(line, prefix) {
+			result[strings.TrimSpace(line)] = "deps"
+		}
+	}
+}
+
+func completePackageSymbols(ctx context.Context, result map[string]string, pkg string, prefix string, symbol bool) {
 	output, err := runGo(ctx, "doc", "-short", pkg)
 	if err != nil {
 		return
@@ -79,7 +121,11 @@ func completePackageSymbols(ctx context.Context, result map[string]string, pkg s
 	for line := range strings.Lines(string(output)) {
 		if kind, tail, found := strings.Cut(line, " "); found && kind != "" && strings.HasPrefix(tail, prefix) {
 			if sep := strings.IndexAny(tail, " ("); sep >= 0 {
-				result[pkg+"."+tail[:sep]] = kind
+				if symbol {
+					result[tail[:sep]] = kind
+				} else {
+					result[pkg+"."+tail[:sep]] = kind
+				}
 			}
 		}
 	}
@@ -107,6 +153,22 @@ func completeTools(ctx context.Context, result map[string]string, prefix string)
 	}
 }
 
+func completeEnv(ctx context.Context, result map[string]string, prefix string) {
+	output, err := runGo(ctx, "env")
+	if err != nil {
+		return
+	}
+	for line := range strings.Lines(string(output)) {
+		name, value, _ := strings.Cut(line, "=")
+		if strings.HasPrefix(name, prefix) {
+			result[name] = strings.Trim(value, "'\n")
+		} else if strings.HasPrefix(prefix, name+"=") {
+			result[prefix] = ""
+			result[name+"="+strings.Trim(value, "'\n")] = "current"
+		}
+	}
+}
+
 func fixupLoneResult(result map[string]string) {
 	if len(result) == 1 {
 		for pkg, status := range result {
@@ -126,8 +188,8 @@ func expandPath(arg string) string {
 }
 
 func runGo(ctx context.Context, command string, args ...string) ([]byte, error) {
-	cmd := exec.CommandContext(ctx, "go")
-	cmd.Args = append(cmd.Args, command)
+	//nolint:gosec //command
+	cmd := exec.CommandContext(ctx, "go", command)
 	if ChangeDirectory != "" {
 		cmd.Args = append(cmd.Args, "-C", expandPath(ChangeDirectory))
 	}

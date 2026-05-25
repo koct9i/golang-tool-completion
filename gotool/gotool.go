@@ -31,11 +31,13 @@ func docAnchor(h string) string {
 	return DocGoCmd + "#hdr-" + strings.ReplaceAll(h, " ", "_")
 }
 
-func ChangeDirectoryFlag() cli.Flag {
-	return &cli.StringFlag{
-		Name:        "C",
-		Usage:       "Change to dir before running the command (must be first flag).",
-		Destination: &gomodules.ChangeDirectory,
+func GlobalFlags() []cli.Flag {
+	return []cli.Flag{
+		&cli.StringFlag{
+			Name:        "C",
+			Usage:       "Change to dir before running the command (must be first flag).",
+			Destination: &gomodules.ChangeDirectory,
+		},
 	}
 }
 
@@ -117,35 +119,56 @@ func argModules() cli.Argument {
 	return &completion.Argument{
 		Name:       "package",
 		UsageText:  "Package with version, Documentation: " + docAnchor("Package_lists_and_patterns"),
-		DoComplete: gomodules.CompleteModules,
+		Max:        -1,
+		OnComplete: gomodules.CompleteModules,
 	}
 }
 
-func argPackage() cli.Argument {
+func argPackages() cli.Argument {
 	return &completion.Argument{
 		Name:       "package",
 		UsageText:  "Package, Documentation: " + docAnchor("Package_lists_and_patterns"),
-		DoComplete: gomodules.CompletePackages,
+		Max:        -1,
+		OnComplete: gomodules.CompletePackages,
 	}
 }
 
-func argPackageVersion() cli.Argument {
+func argDependencies() cli.Argument {
+	return &completion.Argument{
+		Name:       "package",
+		UsageText:  "Package, Documentation: " + docAnchor("Package_lists_and_patterns"),
+		Max:        -1,
+		OnComplete: gomodules.CompleteDependencies,
+	}
+}
+
+func argSourcePackages() cli.Argument {
+	return &completion.Argument{
+		Name:      "package",
+		UsageText: "Package, Documentation: " + docAnchor("Package_lists_and_patterns"),
+		Max:       -1,
+	}
+}
+
+func argPackagesVersion() cli.Argument {
 	return &completion.Argument{
 		Name:       "package",
 		UsageText:  "Package with version, Documentation: " + docAnchor("Package_lists_and_patterns"),
-		DoComplete: gomodules.CompletePackages,
+		Max:        -1,
+		OnComplete: gomodules.CompletePackages,
 	}
 }
 
 func Bug() *cli.Command {
 	return &cli.Command{
-		Name:        "bug",
-		Usage:       "start a bug report",
-		Metadata:    map[string]any{"DocURL": docAnchor("Start_a_bug_report")},
-		Description: "",
-		ArgsUsage:   "",
-		Arguments:   nil,
-		Action:      DummyAction,
+		Name:         "bug",
+		Usage:        "start a bug report",
+		Metadata:     map[string]any{"DocURL": docAnchor("Start_a_bug_report")},
+		Description:  "",
+		ArgsUsage:    "",
+		Arguments:    nil,
+		Action:       DummyAction,
+		OnUsageError: NoUsageErrror,
 	}
 }
 
@@ -160,9 +183,10 @@ func Build() *cli.Command {
 		Flags: append([]cli.Flag{
 			&cli.StringFlag{Name: "o", Usage: "Output file or directory.", Category: catOutput},
 		}, buildFlags()...),
-		ArgsUsage: "[packages]",
-		Arguments: []cli.Argument{argPackage()},
-		Action:    DummyAction,
+		ArgsUsage:    "[packages]",
+		Arguments:    []cli.Argument{argDependencies()},
+		Action:       DummyAction,
+		OnUsageError: NoUsageErrror,
 	}
 }
 
@@ -181,9 +205,10 @@ func Clean() *cli.Command {
 			&cli.BoolFlag{Name: "modcache", Usage: "Remove the entire module download cache.", Category: catCache},
 			&cli.BoolFlag{Name: "fuzzcache", Usage: "Remove all cached fuzzing values.", Category: catCache},
 		}, buildFlags()...),
-		ArgsUsage: "[packages]",
-		Arguments: []cli.Argument{argPackage()},
-		Action:    DummyAction,
+		ArgsUsage:    "[packages]",
+		Arguments:    []cli.Argument{argPackages()},
+		Action:       DummyAction,
+		OnUsageError: NoUsageErrror,
 	}
 }
 
@@ -203,15 +228,24 @@ func Doc() *cli.Command {
 			&cli.BoolFlag{Name: "src", Usage: "Show the full source code for the symbol.", Category: catOutput},
 			&cli.BoolFlag{Name: "u", Usage: "Show docs for unexported symbols too.", Category: catOutput},
 		},
-		ArgsUsage: "package[.symbol[.methodOrField]]",
+		ArgsUsage: "package[.symbol[.methodOrField]] [symbol]",
 		Arguments: []cli.Argument{
 			&completion.Argument{
-				Name:       "query",
-				UsageText:  "Package, symbol, method or field",
-				DoComplete: gomodules.CompleteDocPackages,
+				Name:        "query",
+				UsageText:   "Package, symbol, method or field",
+				Max:         1,
+				Destination: &gomodules.DocPackage,
+				OnComplete:  gomodules.CompleteDocPackage,
+			},
+			&completion.Argument{
+				Name:       "symbol",
+				UsageText:  "Symbol",
+				Max:        1,
+				OnComplete: gomodules.CompleteDocSymbol,
 			},
 		},
-		Action: DummyAction,
+		Action:       DummyAction,
+		OnUsageError: NoUsageErrror,
 	}
 }
 
@@ -228,9 +262,15 @@ func Env() *cli.Command {
 		},
 		ArgsUsage: "[NAME[=VALUE]]...",
 		Arguments: []cli.Argument{
-			&cli.StringArgs{Name: "variable", UsageText: "Environment variable names (e.g. GOPATH, GOMOD)", Min: 0, Max: -1},
+			&completion.Argument{
+				Name:       "variable",
+				UsageText:  "Environment variable names (e.g. GOPATH, GOMOD)",
+				Max:        -1,
+				OnComplete: gomodules.CompleteEnv,
+			},
 		},
-		Action: DummyAction,
+		Action:       DummyAction,
+		OnUsageError: NoUsageErrror,
 	}
 }
 
@@ -244,9 +284,10 @@ func Fix() *cli.Command {
 		Flags: []cli.Flag{
 			&cli.StringFlag{Name: "fix", Usage: "Comma-separated list of fixes to run.", Category: catGeneral},
 		},
-		ArgsUsage: "[packages]",
-		Arguments: []cli.Argument{argPackage()},
-		Action:    DummyAction,
+		ArgsUsage:    "[packages]",
+		Arguments:    []cli.Argument{argSourcePackages()},
+		Action:       DummyAction,
+		OnUsageError: NoUsageErrror,
 	}
 }
 
@@ -261,9 +302,10 @@ func Fmt() *cli.Command {
 			&cli.BoolFlag{Name: "n", Usage: "Print commands that would be executed.", Category: catOutput},
 			&cli.BoolFlag{Name: "x", Usage: "Print commands as they are executed.", Category: catOutput},
 		},
-		ArgsUsage: "[packages]",
-		Arguments: []cli.Argument{argPackage()},
-		Action:    DummyAction,
+		ArgsUsage:    "[packages]",
+		Arguments:    []cli.Argument{argSourcePackages()},
+		Action:       DummyAction,
+		OnUsageError: NoUsageErrror,
 	}
 }
 
@@ -281,12 +323,10 @@ func Generate() *cli.Command {
 			&cli.BoolFlag{Name: "x", Usage: "Print commands as they are executed.", Category: catOutput},
 			&cli.StringFlag{Name: "tags", Usage: "Comma-separated list of build tags.", Category: catBuild},
 		},
-		ArgsUsage: "[packages | file.go]",
-		Arguments: []cli.Argument{
-			argPackage(),
-			&cli.StringArgs{Name: "file.go", UsageText: ""},
-		},
-		Action: DummyAction,
+		ArgsUsage:    "[packages | file.go]",
+		Arguments:    []cli.Argument{argSourcePackages()},
+		Action:       DummyAction,
+		OnUsageError: NoUsageErrror,
 	}
 }
 
@@ -302,9 +342,10 @@ func Get() *cli.Command {
 			&cli.BoolFlag{Name: "u", Usage: "Update modules providing dependencies.", Category: catModule},
 			&cli.BoolFlag{Name: "tool", Usage: "Add packages as tool dependencies (tool directive).", Category: catModule},
 		}, buildFlags()...),
-		ArgsUsage: "[package@[version|latest|patch|none]]...",
-		Arguments: []cli.Argument{argPackageVersion()},
-		Action:    DummyAction,
+		ArgsUsage:    "[package@[version|latest|patch|none]]...",
+		Arguments:    []cli.Argument{argPackagesVersion()},
+		Action:       DummyAction,
+		OnUsageError: NoUsageErrror,
 	}
 }
 
@@ -348,7 +389,8 @@ func Help() *cli.Command {
 			c.Commands = append(commands, c.Commands...)
 			return ctx, nil
 		},
-		Action: DummyAction,
+		Action:       DummyAction,
+		OnUsageError: NoUsageErrror,
 	}
 }
 
@@ -359,10 +401,11 @@ func Install() *cli.Command {
 		Metadata: map[string]any{
 			"DocURL": docAnchor("Compile_and_install_packages_and_dependencies"),
 		},
-		Flags:     buildFlags(),
-		ArgsUsage: "[package[@version|latest]]...",
-		Arguments: []cli.Argument{argPackageVersion()},
-		Action:    DummyAction,
+		Flags:        buildFlags(),
+		ArgsUsage:    "[package[@version|latest]]...",
+		Arguments:    []cli.Argument{argPackagesVersion()},
+		Action:       DummyAction,
+		OnUsageError: NoUsageErrror,
 	}
 }
 
@@ -388,11 +431,13 @@ func List() *cli.Command {
 		Arguments: []cli.Argument{
 			&cli.StringArgs{Name: "targets", UsageText: "Packages (or modules when -m)", Min: 0, Max: -1},
 		},
-		Action: DummyAction,
+		Action:       DummyAction,
+		OnUsageError: NoUsageErrror,
 	}
 }
 
 func Run() *cli.Command {
+	one := 1
 	return &cli.Command{
 		Name:  "run",
 		Usage: "compile and run Go program",
@@ -407,17 +452,18 @@ func Run() *cli.Command {
 			&completion.Argument{
 				Name:       "package",
 				UsageText:  "Program package to run",
-				DoComplete: gomodules.CompletePackages,
+				Max:        1,
+				OnComplete: gomodules.CompletePackages,
 			},
 			&completion.Argument{
 				Name:      "arguments",
 				UsageText: "Arguments passed to the compiled program",
-				DoComplete: func(ctx context.Context, s string) map[string]string {
-					return nil
-				},
+				Max:       -1,
 			},
 		},
-		Action: DummyAction,
+		StopOnNthArg: &one,
+		Action:       DummyAction,
+		OnUsageError: NoUsageErrror,
 	}
 }
 
@@ -430,7 +476,8 @@ func Telemetry() *cli.Command {
 		Arguments: []cli.Argument{
 			&cli.StringArgs{Name: "setting", UsageText: "Optional: off | local | on", Min: 0, Max: 1},
 		},
-		Action: DummyAction,
+		Action:       DummyAction,
+		OnUsageError: NoUsageErrror,
 	}
 }
 
@@ -441,14 +488,16 @@ func Test() *cli.Command {
 		Metadata: map[string]any{
 			"DocURL": docAnchor("Test_packages"),
 		},
-		Flags:     append(buildFlags(), testBinaryFlags()...),
-		ArgsUsage: "[packages] [build/test flags] [test binary flags]",
-		Arguments: []cli.Argument{argPackage()},
-		Action:    DummyAction,
+		Flags:        append(buildFlags(), testBinaryFlags()...),
+		ArgsUsage:    "[packages] [build/test flags] [test binary flags]",
+		Arguments:    []cli.Argument{argSourcePackages()},
+		Action:       DummyAction,
+		OnUsageError: NoUsageErrror,
 	}
 }
 
 func Tool() *cli.Command {
+	one := 1
 	return &cli.Command{
 		Name:      "tool",
 		Usage:     "run specified go tool",
@@ -461,12 +510,6 @@ func Tool() *cli.Command {
 			"DocURL": docAnchor("Run_specified_go_tool"),
 		},
 		Flags: []cli.Flag{
-			&cli.StringFlag{
-				Name:        "C",
-				Usage:       "Change to dir before running the command (must be first flag).",
-				Category:    catGeneral,
-				Destination: &gomodules.ChangeDirectory,
-			},
 			&cli.StringFlag{Name: "overlay", Usage: "Read a JSON config file that provides an overlay for build operations.", Category: catBuild},
 			&cli.BoolFlag{Name: "modcacherw", Usage: "Leave newly-created module cache directories read-write.", Category: catCache},
 			&cli.StringFlag{
@@ -480,18 +523,18 @@ func Tool() *cli.Command {
 			&completion.Argument{
 				Name:       "command",
 				UsageText:  "",
-				DoComplete: gomodules.CompleteTools,
+				Max:        1,
+				OnComplete: gomodules.CompleteTools,
 			},
 			&completion.Argument{
-				Name:       "arguments",
-				UsageText:  "",
-				DoComplete: func(ctx context.Context, s string) map[string]string { return nil },
+				Name:      "arguments",
+				UsageText: "",
+				Max:       -1,
 			},
 		},
-		Action: DummyAction,
-		OnUsageError: func(ctx context.Context, cmd *cli.Command, err error, isSubcommand bool) error {
-			return err
-		},
+		StopOnNthArg: &one,
+		Action:       DummyAction,
+		OnUsageError: NoUsageErrror,
 	}
 }
 
@@ -509,7 +552,8 @@ func Version() *cli.Command {
 		Arguments: []cli.Argument{
 			&cli.StringArgs{Name: "file", UsageText: "Go binaries to inspect", Min: 0, Max: -1},
 		},
-		Action: DummyAction,
+		Action:       DummyAction,
+		OnUsageError: NoUsageErrror,
 	}
 }
 
@@ -523,9 +567,10 @@ func Vet() *cli.Command {
 		Flags: append([]cli.Flag{
 			&cli.StringFlag{Name: "vettool", Usage: "Use a different analysis tool.", Category: catTool},
 		}, buildFlags()...),
-		ArgsUsage: "[package]...",
-		Arguments: []cli.Argument{argPackage()},
-		Action:    DummyAction,
+		ArgsUsage:    "[package]...",
+		Arguments:    []cli.Argument{argSourcePackages()},
+		Action:       DummyAction,
+		OnUsageError: NoUsageErrror,
 	}
 }
 
@@ -546,7 +591,8 @@ func Mod() *cli.Command {
 			ModVerify(),
 			ModWhy(),
 		},
-		Action: DummyAction,
+		Action:       DummyAction,
+		OnUsageError: NoUsageErrror,
 	}
 }
 
@@ -561,9 +607,10 @@ func ModDownload() *cli.Command {
 			&cli.BoolFlag{Name: "json", Usage: "Print JSON output.", Category: catOutput},
 			&cli.BoolFlag{Name: "x", Usage: "Print commands as they are executed.", Category: catOutput},
 		},
-		ArgsUsage: "package[@version]...",
-		Arguments: []cli.Argument{argModules()},
-		Action:    DummyAction,
+		ArgsUsage:    "package[@version]...",
+		Arguments:    []cli.Argument{argModules()},
+		Action:       DummyAction,
+		OnUsageError: NoUsageErrror,
 	}
 }
 
@@ -593,16 +640,18 @@ func ModEdit() *cli.Command {
 		Arguments: []cli.Argument{
 			&cli.StringArgs{Name: "go.mod", UsageText: "Optional path to a go.mod file (default: ./go.mod)", Min: 0, Max: 1},
 		},
-		Action: DummyAction,
+		Action:       DummyAction,
+		OnUsageError: NoUsageErrror,
 	}
 }
 
 func ModGraph() *cli.Command {
 	return &cli.Command{
-		Name:     "graph",
-		Usage:    "print module requirement graph",
-		Metadata: map[string]any{"DocURL": docAnchor("Print_module_requirement_graph")},
-		Action:   DummyAction,
+		Name:         "graph",
+		Usage:        "print module requirement graph",
+		Metadata:     map[string]any{"DocURL": docAnchor("Print_module_requirement_graph")},
+		Action:       DummyAction,
+		OnUsageError: NoUsageErrror,
 	}
 }
 
@@ -615,7 +664,8 @@ func ModInit() *cli.Command {
 		Arguments: []cli.Argument{
 			&cli.StringArgs{Name: "module-path", UsageText: "Optional module path to initialize", Min: 0, Max: 1},
 		},
-		Action: DummyAction,
+		Action:       DummyAction,
+		OnUsageError: NoUsageErrror,
 	}
 }
 
@@ -632,7 +682,8 @@ func ModTidy() *cli.Command {
 			&cli.StringFlag{Name: "go", Usage: "Set -go=version for tidy.", Category: catModule},
 			&cli.StringFlag{Name: "compat", Usage: "Set -compat=version for tidy.", Category: catModule},
 		},
-		Action: DummyAction,
+		Action:       DummyAction,
+		OnUsageError: NoUsageErrror,
 	}
 }
 
@@ -646,16 +697,18 @@ func ModVendor() *cli.Command {
 			&cli.BoolFlag{Name: "v", Usage: "Print names of vendored modules and packages.", Category: catOutput},
 			&cli.StringFlag{Name: "o", Usage: "Output directory.", Category: catOutput},
 		},
-		Action: DummyAction,
+		Action:       DummyAction,
+		OnUsageError: NoUsageErrror,
 	}
 }
 
 func ModVerify() *cli.Command {
 	return &cli.Command{
-		Name:     "verify",
-		Usage:    "verify dependencies have expected content",
-		Metadata: map[string]any{"DocURL": docAnchor("Verify_dependencies_have_expected_content")},
-		Action:   DummyAction,
+		Name:         "verify",
+		Usage:        "verify dependencies have expected content",
+		Metadata:     map[string]any{"DocURL": docAnchor("Verify_dependencies_have_expected_content")},
+		Action:       DummyAction,
+		OnUsageError: NoUsageErrror,
 	}
 }
 
@@ -669,9 +722,10 @@ func ModWhy() *cli.Command {
 		Flags: []cli.Flag{
 			&cli.BoolFlag{Name: "m", Usage: "Treat arguments as modules.", Category: catModule},
 		},
-		ArgsUsage: "package...",
-		Arguments: []cli.Argument{argPackage()},
-		Action:    DummyAction,
+		ArgsUsage:    "package...",
+		Arguments:    []cli.Argument{argDependencies()},
+		Action:       DummyAction,
+		OnUsageError: NoUsageErrror,
 	}
 }
 
@@ -689,8 +743,9 @@ func Work() *cli.Command {
 			WorkUse(),
 			WorkVendor(),
 		},
-		ArgsUsage: "<command> [argument]...",
-		Action:    DummyAction,
+		ArgsUsage:    "<command> [argument]...",
+		Action:       DummyAction,
+		OnUsageError: NoUsageErrror,
 	}
 }
 
@@ -714,7 +769,8 @@ func WorkEdit() *cli.Command {
 		Arguments: []cli.Argument{
 			&cli.StringArgs{Name: "go.work", UsageText: "Optional path to a go.work file (default: ./go.work)", Min: 0, Max: 1},
 		},
-		Action: DummyAction,
+		Action:       DummyAction,
+		OnUsageError: NoUsageErrror,
 	}
 }
 
@@ -727,16 +783,18 @@ func WorkInit() *cli.Command {
 		Arguments: []cli.Argument{
 			&cli.StringArgs{Name: "moddir", UsageText: "Module directory to add as use directives", Min: 0, Max: -1},
 		},
-		Action: DummyAction,
+		Action:       DummyAction,
+		OnUsageError: NoUsageErrror,
 	}
 }
 
 func WorkSync() *cli.Command {
 	return &cli.Command{
-		Name:     "sync",
-		Usage:    "sync workspace build list to modules",
-		Metadata: map[string]any{"DocURL": docAnchor("Sync_workspace_build_list_to_modules")},
-		Action:   DummyAction,
+		Name:         "sync",
+		Usage:        "sync workspace build list to modules",
+		Metadata:     map[string]any{"DocURL": docAnchor("Sync_workspace_build_list_to_modules")},
+		Action:       DummyAction,
+		OnUsageError: NoUsageErrror,
 	}
 }
 
@@ -752,7 +810,8 @@ func WorkUse() *cli.Command {
 		Arguments: []cli.Argument{
 			&cli.StringArgs{Name: "moddir", UsageText: "Module directory to add to the workspace", Min: 0, Max: -1},
 		},
-		Action: DummyAction,
+		Action:       DummyAction,
+		OnUsageError: NoUsageErrror,
 	}
 }
 
@@ -766,7 +825,8 @@ func WorkVendor() *cli.Command {
 			&cli.BoolFlag{Name: "v", Usage: "Print names of vendored modules and packages.", Category: catOutput},
 			&cli.StringFlag{Name: "o", Usage: "Output directory.", Category: catOutput},
 		},
-		Action: DummyAction,
+		Action:       DummyAction,
+		OnUsageError: NoUsageErrror,
 	}
 }
 
@@ -775,4 +835,8 @@ func DummyAction(ctx context.Context, c *cli.Command) error {
 		completion.LastCommand = c
 	}
 	return nil
+}
+
+func NoUsageErrror(ctx context.Context, cmd *cli.Command, err error, isSubcommand bool) error {
+	return err
 }

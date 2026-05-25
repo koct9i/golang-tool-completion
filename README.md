@@ -72,12 +72,14 @@ shell <TAB>
        └─ exec(go, original argv)
 ```
 
-Argument completion for `build`, `get`, `install`, `list`, `run`, and similar commands is provided by reading the local module cache:
+Argument completion for `get`, `install`, `run`, and similar commands is provided by reading the local module cache:
 
-* **Extracted tree** — directories named `<escaped-module>@<version>/` under `GOMODCACHE`
-* **Download tree** — `cache/download/<escaped-module>/@v/list` files
+* **Cached modules** — directories named `<module>@<version>/` under `GOMODCACHE`
+* **Trending** — frequently used open-source modules
 
-Also `golang-tool-completion` embeds list of [1000 trending go modules from goproxy.cn](https://goproxy.cn/stats).
+List of trending modules is read from `~/.config/golang-tool-completion/trending.txt`.
+Fallback is embedded list of 1000 trending go modules from [goproxy.cn](https://goproxy.cn/stats).
+To to disable, run: `golang-tool-completion completion --disable-trending`.
 
 ## Links
 

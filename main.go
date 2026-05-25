@@ -109,8 +109,7 @@ func main() {
 		Metadata: map[string]any{
 			"DocURL": gotool.DocGoCmd,
 		},
-		Flags: []cli.Flag{
-			gotool.ChangeDirectoryFlag(),
+		Flags: append([]cli.Flag{
 			&cli.BoolFlag{
 				Name:    "help",
 				Aliases: []string{"h"},
@@ -130,7 +129,7 @@ func main() {
 					return cli.Exit("", 0)
 				},
 			},
-		},
+		}, gotool.GlobalFlags()...),
 		Commands: []*cli.Command{
 			gotool.Bug(),
 			gotool.Build(),
