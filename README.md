@@ -88,7 +88,7 @@ To disable trending modules in completion: `golang-tool-completion completion --
 ## Links
 
 - [golang proposal: bash_completions support #58598](https://github.com/golang/go/issues/58598)
-- [github.com/posener/complete](https://github.com/posener/complete)
+- [github.com/posener/complete](https://github.com/posener/complete/tree/master)
 
 ## License
 
