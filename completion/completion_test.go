@@ -25,12 +25,12 @@ func TestDoCompletionCommands(t *testing.T) {
 func TestDoCompletionCommandAliases(t *testing.T) {
 	root := testRootCommand()
 	root.Commands = []*cli.Command{
-		{Name: "build", Aliases: []string{"bld"}, Usage: "compile packages"},
+		{Name: "build", Aliases: []string{"cmdalias"}, Usage: "compile packages"},
 	}
 
-	got := runCompletion(t, root, "", []string{"bld"})
-	if got != "bld\n" {
-		t.Fatalf("doCompletion alias suggestions = %q, want %q", got, "bld\n")
+	got := runCompletion(t, root, "", []string{"cmd"})
+	if got != "cmdalias\n" {
+		t.Fatalf("doCompletion alias suggestions = %q, want %q", got, "cmdalias\n")
 	}
 }
 
@@ -48,7 +48,7 @@ func TestDoCompletionFlags(t *testing.T) {
 	}
 
 	got := runCompletion(t, root, "", []string{"build", "-"})
-	want := "--verbose\n-v\n"
+	want := "--help\n--verbose\n-h\n-v\n"
 	if got != want {
 		t.Fatalf("doCompletion flag suggestions = %q, want %q", got, want)
 	}
@@ -58,8 +58,10 @@ func TestDoCompletionArguments(t *testing.T) {
 	root := testRootCommand()
 	root.Commands = []*cli.Command{
 		{
-			Name:   "get",
-			Action: captureLastCommandAction,
+			Name:            "get",
+			Action:          captureLastCommandAction,
+			HideHelp:        true,
+			HideHelpCommand: true,
 			Arguments: []cli.Argument{
 				&Argument{
 					Name: "pkg",
@@ -96,8 +98,11 @@ func TestDoCompletionNoCompletionAfterDoubleDash(t *testing.T) {
 
 func testRootCommand() *cli.Command {
 	return &cli.Command{
-		Name:   "go",
-		Writer: &bytes.Buffer{},
+		Name:      "go",
+		Writer:    &bytes.Buffer{},
+		ErrWriter: &bytes.Buffer{},
+		ExitErrHandler: func(_ context.Context, _ *cli.Command, _ error) {
+		},
 	}
 }
 
