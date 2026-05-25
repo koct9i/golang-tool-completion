@@ -73,6 +73,8 @@ shell <Enter>
        └─ exec(go, original argv)
 ```
 
+[Shell tab-completion](completion/completion.go) is implemented from scratch.
+
 ## Packages
 
 Argument completion for `get`, `install`, `run`, and similar commands fetches package names from:
@@ -88,7 +90,9 @@ To disable trending modules in completion: `golang-tool-completion completion --
 ## Links
 
 - [golang proposal: bash_completions support #58598](https://github.com/golang/go/issues/58598)
+- [github.com/urfave/cli](https://github.com/urfave/cli)
 - [github.com/posener/complete](https://github.com/posener/complete/tree/master)
+- [github.com/spf13/cobra](https://github.com/spf13/cobra/blob/main/site/content/completions/_index.md)
 
 ## License
 
