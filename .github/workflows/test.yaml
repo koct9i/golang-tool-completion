@@ -11,8 +11,20 @@ on:
 
 jobs:
   test:
-    runs-on: ubuntu-latest
     timeout-minutes: 5
+
+    strategy:
+      fail-fast: false
+      matrix:
+        os:
+          - name: linux
+            runs-on: ubuntu-latest
+          - name: osx
+            runs-on: macos-latest
+
+    name: Test on ${{ matrix.os.name }}
+    runs-on: ${{ matrix.os.runs-on }}
+
     steps:
       # https://github.com/actions/checkout
       - uses: actions/checkout@v6
