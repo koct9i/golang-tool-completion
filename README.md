@@ -78,8 +78,9 @@ Argument completion for `get`, `install`, `run`, and similar commands is provide
 * **Trending** — frequently used open-source modules
 
 List of trending modules is read from `~/.config/golang-tool-completion/trending.txt`.
+
 Fallback is embedded list of 1000 trending go modules from [goproxy.cn](https://goproxy.cn/stats).
-To to disable, run: `golang-tool-completion completion --disable-trending`.
+To to disable: `golang-tool-completion completion --disable-trending`.
 
 ## Links
 
