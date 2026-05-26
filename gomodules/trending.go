@@ -8,17 +8,16 @@ import (
 	"strings"
 )
 
-//go:generate bash -c "curl https://goproxy.cn/stats/trends/last-30-days | jq -r '[.[].module_path] | sort | .[]' >trending.txt"
+//go:generate bash -c "curl -s https://goproxy.cn/stats/trends/last-30-days | jq -r '.[] | [ .module_path, (.description // .module_description // .repo_description // \"\") ] | @tsv' | sort >trending.txt"
 
 //go:embed trending.txt
 var trending string
 
 func readTrending() {
-	userConfigDir, err := os.UserConfigDir()
+	userTrendingPath, err := userTrendingPath(false)
 	if err != nil {
 		return
 	}
-	userTrendingPath := filepath.Join(userConfigDir, "golang-tool-completion", "trending.txt")
 	//nolint:gosec //read
 	userTrending, err := os.ReadFile(userTrendingPath)
 	if err == nil {
@@ -26,21 +25,55 @@ func readTrending() {
 	}
 }
 
-func DisableTrending() error {
+func userTrendingPath(mkdir bool) (string, error) {
 	userConfigDir, err := os.UserConfigDir()
 	if err != nil {
-		return err
+		return "", err
 	}
-	userTrendingPath := filepath.Join(userConfigDir, "golang-tool-completion", "trending.txt")
-	if _, err := fmt.Fprintf(os.Stderr, "Disabling completion for trending modules by creating empty file: %v\n", userTrendingPath); err != nil {
-		return err
+	if mkdir {
+		configDir := filepath.Join(userConfigDir, "golang-tool-completion")
+		st, err := os.Stat(configDir)
+		if err != nil && os.IsNotExist(err) {
+			//nolint:gosec //0o755
+			err = os.Mkdir(configDir, 0o755)
+		} else if err == nil && !st.IsDir() {
+			err = fmt.Errorf("not a directory: %v", configDir)
+		}
+		if err != nil {
+			return "", err
+		}
 	}
-	//nolint:gosec //0o644
-	f, err := os.OpenFile(userTrendingPath, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o644)
+	return filepath.Join(userConfigDir, "golang-tool-completion", "trending.txt"), nil
+}
+
+func DisableTrending() error {
+	userTrendingPath, err := userTrendingPath(true)
 	if err != nil {
 		return err
 	}
-	return f.Close()
+	if _, err := fmt.Fprintf(os.Stderr, "Disabling completion for trending modules by writing empty file: %v\n", userTrendingPath); err != nil {
+		return err
+	}
+	trending = ""
+	//nolint:gosec //0o644
+	return os.WriteFile(userTrendingPath, nil, 0o644)
+}
+
+func AddTrending(modules, descriptions []string) error {
+	userTrendingPath, err := userTrendingPath(true)
+	if err != nil {
+		return err
+	}
+	readTrending()
+	if len(descriptions) == 0 {
+		descriptions = []string{""}
+	}
+	for i, module := range modules {
+		description := descriptions[min(i, len(descriptions)-1)]
+		trending += fmt.Sprintf("%s\t%s\n", module, description)
+	}
+	//nolint:gosec //0o644
+	return os.WriteFile(userTrendingPath, []byte(trending), 0o644)
 }
 
 func CompleteTrending(results map[string]string, prefix string) {
@@ -48,10 +81,14 @@ func CompleteTrending(results map[string]string, prefix string) {
 	for line := range strings.Lines(trending) {
 		if tail, found := strings.CutPrefix(line, prefix); found {
 			tail, _ = strings.CutSuffix(tail, "\n")
+			var desc string
+			if tail, desc, found = strings.Cut(tail, "\t"); !found {
+				desc = "trending"
+			}
 			if tail, _, found = strings.Cut(tail, "/"); found {
-				results[prefix+tail+"/"] = "trending"
+				results[prefix+tail+"/"] = desc
 			} else {
-				results[prefix+tail+"@"] = "trending"
+				results[prefix+tail+"@"] = desc
 			}
 		}
 	}

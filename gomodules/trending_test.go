@@ -12,19 +12,30 @@ import (
 func TestTrendingModules(t *testing.T) {
 	for line := range strings.Lines(trending) {
 		line, _ = strings.CutSuffix(line, "\n")
-		if err := module.CheckPath(line); err != nil {
-			t.Errorf("Trending %q %v", line, err)
+		mod, _, _ := strings.Cut(line, "\t")
+		if err := module.CheckPath(mod); err != nil {
+			t.Errorf("Trending %q %v", mod, err)
 		}
 	}
+
+	current := trending
+	t.Cleanup(func() {
+		trending = current
+	})
+	trending += "example.com/mod\tExample module\n"
 
 	for _, tt := range []struct {
 		prefix string
 		want   []string
+		desc   []string
 	}{
-		{".", []string{}},
-		{"./", []string{}},
-		{"example.com", []string{}},
-		{"golang.or", []string{"golang.org/"}},
+		{".", nil, nil},
+		{"./", nil, nil},
+		{"golang.or", []string{"golang.org/"}, []string{"trending"}},
+		{"golang.org/x/syn", []string{"golang.org/x/sync@"}, []string{"trending"}},
+		{"example.co/", nil, nil},
+		{"example.co", []string{"example.com/"}, []string{"Example module"}},
+		{"example.com/", []string{"example.com/mod@"}, []string{"Example module"}},
 	} {
 		t.Run(tt.prefix, func(t *testing.T) {
 			result := map[string]string{}
@@ -33,10 +44,9 @@ func TestTrendingModules(t *testing.T) {
 			if !slices.Equal(got, tt.want) {
 				t.Fatalf("CompleteTrending(%q) = %v, want %v", tt.prefix, got, tt.want)
 			}
-			if len(result) > 0 {
-				status := slices.Compact(slices.Collect(maps.Values(result)))
-				if len(status) != 1 || status[0] != "trending" {
-					t.Fatalf("CompleteTrending status %v", status)
+			for i, mod := range tt.want {
+				if desc := result[mod]; desc != tt.desc[i] {
+					t.Fatalf("CompleteTrending(%q) %v = %v, want %v", tt.prefix, mod, desc, tt.desc[i])
 				}
 			}
 		})

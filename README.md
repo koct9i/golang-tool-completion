@@ -86,6 +86,7 @@ List of trending modules is read from `~/.config/golang-tool-completion/trending
 fallback is [embedded](gomodules/trending.txt) list of 1000 trending go modules from [goproxy.cn](https://goproxy.cn/stats).
 
 To disable trending modules in completion: `golang-tool-completion completion --disable-trending`.
+To add modules: `golang-tool-completion completion --add-trending <module> [--description <description>]`.
 
 ## Links
 

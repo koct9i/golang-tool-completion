@@ -95,7 +95,7 @@ func doCompletionScript(writer io.Writer, shell, command, handler string, instal
 	} else if _, err := writer.Write([]byte(script)); err != nil {
 		return err
 	}
-	return cli.Exit("", 0)
+	return nil
 }
 
 type Completor interface {
@@ -256,7 +256,7 @@ func doCompletion(ctx context.Context, c *cli.Command, shell string, completeArg
 		return err
 	}
 
-	return cli.Exit("", 0)
+	return nil
 }
 
 func Completion() *cli.Command {
@@ -265,6 +265,9 @@ func Completion() *cli.Command {
 	var command string
 	var shell string
 	var completeArgs []string
+	var disableTrendingModules bool
+	var addTrendingModules []string
+	var descriptions []string
 	return &cli.Command{
 		Name:      "completion",
 		Usage:     "generate shell completion",
@@ -287,13 +290,27 @@ func Completion() *cli.Command {
 				Usage:       "Command name to complete",
 			},
 			&cli.BoolFlag{
-				Name:  "disable-trending",
-				Usage: "Disable completion using built-in list of trending modules",
-				Action: func(ctx context.Context, c *cli.Command, b bool) error {
-					if err := gomodules.DisableTrending(); err != nil {
-						return err
-					}
-					return cli.Exit("", 0)
+				Name:        "disable-trending",
+				Usage:       "Clear list of trending modules used for completion",
+				Category:    "Trending",
+				Destination: &disableTrendingModules,
+			},
+			&cli.StringFlag{
+				Name:     "add-trending",
+				Usage:    "Add modules with descriptions into list of trending modules",
+				Category: "Trending",
+				Action: func(ctx context.Context, c *cli.Command, arg string) error {
+					addTrendingModules = append(addTrendingModules, arg)
+					return nil
+				},
+			},
+			&cli.StringFlag{
+				Name:     "description",
+				Usage:    "Set description for added trending modules",
+				Category: "Trending",
+				Action: func(ctx context.Context, c *cli.Command, arg string) error {
+					descriptions = append(descriptions, arg)
+					return nil
 				},
 			},
 		},
@@ -301,9 +318,20 @@ func Completion() *cli.Command {
 			&cli.StringArg{Name: "shell", Destination: &shell},
 			&cli.StringArgs{Name: "complete-args", Destination: &completeArgs, Max: -1},
 		},
-		Action: func(ctx context.Context, c *cli.Command) error {
+		Action: func(ctx context.Context, c *cli.Command) (err error) {
 			if WithinCompletion {
 				return nil
+			}
+			defer func() {
+				if err == nil {
+					err = cli.Exit("", 0) // Do not call go tool.
+				}
+			}()
+			if disableTrendingModules {
+				return gomodules.DisableTrending()
+			}
+			if len(addTrendingModules) > 0 {
+				return gomodules.AddTrending(addTrendingModules, descriptions)
 			}
 			if shell == "" {
 				shell = filepath.Base(os.Getenv("SHELL"))
