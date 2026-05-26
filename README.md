@@ -84,8 +84,10 @@ Argument completion for `get`, `install`, `run`, and similar commands fetches pa
 
 List of trending modules is read from `~/.config/golang-tool-completion/trending.txt`,
 fallback is [embedded](gomodules/trending.txt) list of 1000 trending go modules from [goproxy.cn](https://goproxy.cn/stats).
+Each line supports `module_path<TAB>description`; plain `module_path` is also supported.
 
 To disable trending modules in completion: `golang-tool-completion completion --disable-trending`.
+To copy built-in trending modules (with descriptions) into config: `golang-tool-completion completion --add-trending`.
 
 ## Links
 

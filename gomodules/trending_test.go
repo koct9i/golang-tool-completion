@@ -11,9 +11,12 @@ import (
 
 func TestTrendingModules(t *testing.T) {
 	for line := range strings.Lines(trending) {
-		line, _ = strings.CutSuffix(line, "\n")
-		if err := module.CheckPath(line); err != nil {
-			t.Errorf("Trending %q %v", line, err)
+		modulePath, _, ok := parseTrendingLine(line)
+		if !ok {
+			continue
+		}
+		if err := module.CheckPath(modulePath); err != nil {
+			t.Errorf("Trending %q %v", modulePath, err)
 		}
 	}
 
@@ -40,5 +43,20 @@ func TestTrendingModules(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+func TestCompleteTrendingDescription(t *testing.T) {
+	current := trending
+	t.Cleanup(func() {
+		trending = current
+	})
+	trending = "example.com/mod\tExample module\n"
+
+	result := map[string]string{}
+	CompleteTrending(result, "example.com/mod")
+
+	if got := result["example.com/mod@"]; got != "Example module" {
+		t.Fatalf("CompleteTrending description = %q, want %q", got, "Example module")
 	}
 }

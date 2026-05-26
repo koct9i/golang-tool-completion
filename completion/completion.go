@@ -296,6 +296,16 @@ func Completion() *cli.Command {
 					return cli.Exit("", 0)
 				},
 			},
+			&cli.BoolFlag{
+				Name:  "add-trending",
+				Usage: "Add built-in trending modules with descriptions into config",
+				Action: func(ctx context.Context, c *cli.Command, b bool) error {
+					if err := gomodules.AddTrending(); err != nil {
+						return err
+					}
+					return cli.Exit("", 0)
+				},
+			},
 		},
 		Arguments: []cli.Argument{
 			&cli.StringArg{Name: "shell", Destination: &shell},
