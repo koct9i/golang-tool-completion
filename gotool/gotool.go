@@ -223,6 +223,7 @@ func Doc() *cli.Command {
 			&cli.BoolFlag{Name: "all", Usage: "Show all the documentation for the package.", Category: catOutput},
 			&cli.BoolFlag{Name: "c", Usage: "Respect case when matching symbols.", Category: catGeneral},
 			&cli.BoolFlag{Name: "cmd", Usage: "Treat a command (package main) like a regular package.", Category: catGeneral},
+			&cli.BoolFlag{Name: "ex", Usage: "Include executable examples.", Category: catOutput},
 			&cli.BoolFlag{Name: "http", Usage: "Serve HTML docs over HTTP.", Category: catTool},
 			&cli.BoolFlag{Name: "short", Usage: "One-line representation for each symbol.", Category: catOutput},
 			&cli.BoolFlag{Name: "src", Usage: "Show the full source code for the symbol.", Category: catOutput},
@@ -277,13 +278,14 @@ func Env() *cli.Command {
 func Fix() *cli.Command {
 	return &cli.Command{
 		Name:  "fix",
-		Usage: "update packages to use new APIs",
+		Usage: "apply fixes suggested by static checkers",
 		Metadata: map[string]any{
-			"DocURL": docAnchor("Update_packages_to_use_new_APIs"),
+			"DocURL": docAnchor("Apply_fixes_suggested_by_static_checkers"),
 		},
-		Flags: []cli.Flag{
-			&cli.StringFlag{Name: "fix", Usage: "Comma-separated list of fixes to run.", Category: catGeneral},
-		},
+		Flags: append([]cli.Flag{
+			&cli.BoolFlag{Name: "diff", Usage: "Print patch as unified diff instead of applying fixes.", Category: catOutput},
+			&cli.StringFlag{Name: "fixtool", Usage: "Use a different analysis tool with alternative or additional fixers.", Category: catTool},
+		}, buildFlags()...),
 		ArgsUsage:    "[packages]",
 		Arguments:    []cli.Argument{argSourcePackages()},
 		Action:       DummyAction,
@@ -318,6 +320,7 @@ func Generate() *cli.Command {
 		},
 		Flags: []cli.Flag{
 			&cli.StringFlag{Name: "run", Usage: "Run only generators matching the regexp.", Category: catGeneral},
+			&cli.StringFlag{Name: "skip", Usage: "Skip generators matching the regexp.", Category: catGeneral},
 			&cli.BoolFlag{Name: "n", Usage: "Print commands but do not run them.", Category: catOutput},
 			&cli.BoolFlag{Name: "v", Usage: "Verbose output.", Category: catOutput},
 			&cli.BoolFlag{Name: "x", Usage: "Print commands as they are executed.", Category: catOutput},
@@ -356,11 +359,13 @@ func Help() *cli.Command {
 		Metadata: map[string]any{"DocURL": DocGoCmd},
 		Commands: []*cli.Command{
 			{Name: "buildconstraint", Usage: "build constraints", Metadata: map[string]any{"DocURL": DocGoCmd}, Action: DummyAction},
+			{Name: "buildjson", Usage: "build -json encoding", Metadata: map[string]any{"DocURL": DocGoCmd}, Action: DummyAction},
 			{Name: "buildmode", Usage: "build modes", Metadata: map[string]any{"DocURL": DocGoCmd}, Action: DummyAction},
 			{Name: "c", Usage: "calling between Go and C", Metadata: map[string]any{"DocURL": DocGoCmd}, Action: DummyAction},
 			{Name: "cache", Usage: "build and test caching", Metadata: map[string]any{"DocURL": DocGoCmd}, Action: DummyAction},
 			{Name: "environment", Usage: "environment variables", Metadata: map[string]any{"DocURL": DocGoCmd}, Action: DummyAction},
 			{Name: "filetype", Usage: "file types", Metadata: map[string]any{"DocURL": DocGoCmd}, Action: DummyAction},
+			{Name: "goauth", Usage: "GOAUTH environment variable", Metadata: map[string]any{"DocURL": DocGoCmd}, Action: DummyAction},
 			{Name: "go.mod", Usage: "the go.mod file", Metadata: map[string]any{"DocURL": DocGoCmd}, Action: DummyAction},
 			{Name: "gopath", Usage: "GOPATH environment variable", Metadata: map[string]any{"DocURL": DocGoCmd}, Action: DummyAction},
 			{Name: "goproxy", Usage: "module proxy protocol", Metadata: map[string]any{"DocURL": DocGoCmd}, Action: DummyAction},
@@ -417,11 +422,15 @@ func List() *cli.Command {
 			"DocURL": docAnchor("List_packages_or_modules"),
 		},
 		Flags: append([]cli.Flag{
+			&cli.BoolFlag{Name: "compiled", Usage: "Set CompiledGoFiles in output.", Category: catGeneral},
 			&cli.BoolFlag{Name: "deps", Usage: "List dependencies of each package.", Category: catGeneral},
+			&cli.BoolFlag{Name: "e", Usage: "Include erroneous packages in output.", Category: catGeneral},
+			&cli.BoolFlag{Name: "export", Usage: "Set Export and BuildID fields in output.", Category: catGeneral},
 			&cli.StringFlag{Name: "f", Usage: "Print using a custom format.", Category: catOutput},
 			&cli.BoolFlag{Name: "find", Usage: "Identify packages but do not resolve dependencies.", Category: catGeneral},
 			&cli.BoolFlag{Name: "json", Usage: "Print JSON instead of text.", Category: catOutput},
 			&cli.BoolFlag{Name: "m", Usage: "List modules instead of packages.", Category: catModule},
+			&cli.StringFlag{Name: "reuse", Usage: "Reuse prior -m -json output from file.", Category: catModule},
 			&cli.BoolFlag{Name: "test", Usage: "Include test packages.", Category: catTest},
 			&cli.BoolFlag{Name: "u", Usage: "When -m, also show available upgrades (with -versions).", Category: catModule},
 			&cli.BoolFlag{Name: "retracted", Usage: "When -m, include retracted versions.", Category: catModule},
@@ -488,7 +497,12 @@ func Test() *cli.Command {
 		Metadata: map[string]any{
 			"DocURL": docAnchor("Test_packages"),
 		},
-		Flags:        append(buildFlags(), testBinaryFlags()...),
+		Flags: append([]cli.Flag{
+			&cli.BoolFlag{Name: "args", Usage: "Pass remaining args to the test binary.", Category: catTest},
+			&cli.BoolFlag{Name: "c", Usage: "Compile test binary but do not run it.", Category: catTest},
+			&cli.StringFlag{Name: "exec", Usage: "Run test binary using xprog.", Category: catTool},
+			&cli.StringFlag{Name: "o", Usage: "Write test binary to file or directory.", Category: catOutput},
+		}, append(buildFlags(), testBinaryFlags()...)...),
 		ArgsUsage:    "[packages] [build/test flags] [test binary flags]",
 		Arguments:    []cli.Argument{argSourcePackages()},
 		Action:       DummyAction,
@@ -510,6 +524,7 @@ func Tool() *cli.Command {
 			"DocURL": docAnchor("Run_specified_go_tool"),
 		},
 		Flags: []cli.Flag{
+			&cli.BoolFlag{Name: "n", Usage: "Print command that would be executed.", Category: catOutput},
 			&cli.StringFlag{Name: "overlay", Usage: "Read a JSON config file that provides an overlay for build operations.", Category: catBuild},
 			&cli.BoolFlag{Name: "modcacherw", Usage: "Leave newly-created module cache directories read-write.", Category: catCache},
 			&cli.StringFlag{
@@ -565,6 +580,10 @@ func Vet() *cli.Command {
 			"DocURL": docAnchor("Report_likely_mistakes_in_packages"),
 		},
 		Flags: append([]cli.Flag{
+			&cli.IntFlag{Name: "c", Usage: "Display offending line with this many lines of context (default -1).", Category: catOutput},
+			&cli.BoolFlag{Name: "diff", Usage: "Print patch as unified diff instead of applying fixes.", Category: catOutput},
+			&cli.BoolFlag{Name: "fix", Usage: "Apply first suggested fix instead of printing diagnostic.", Category: catGeneral},
+			&cli.BoolFlag{Name: "json", Usage: "Emit JSON output.", Category: catOutput},
 			&cli.StringFlag{Name: "vettool", Usage: "Use a different analysis tool.", Category: catTool},
 		}, buildFlags()...),
 		ArgsUsage:    "[package]...",
@@ -605,6 +624,7 @@ func ModDownload() *cli.Command {
 		},
 		Flags: []cli.Flag{
 			&cli.BoolFlag{Name: "json", Usage: "Print JSON output.", Category: catOutput},
+			&cli.StringFlag{Name: "reuse", Usage: "Reuse previous -json output from file.", Category: catModule},
 			&cli.BoolFlag{Name: "x", Usage: "Print commands as they are executed.", Category: catOutput},
 		},
 		ArgsUsage:    "package[@version]...",
@@ -621,10 +641,15 @@ func ModEdit() *cli.Command {
 		Metadata: map[string]any{"DocURL": docAnchor("Edit_go.mod_from_tools_or_scripts")},
 		Flags: []cli.Flag{
 			&cli.BoolFlag{Name: "fmt", Usage: "Reformat go.mod.", Category: catModule},
+			&cli.StringFlag{Name: "module", Usage: "Set module path.", Category: catModule},
 			&cli.StringFlag{Name: "go", Usage: "Set the expected Go language version.", Category: catModule},
 			&cli.StringFlag{Name: "toolchain", Usage: "Set the toolchain line.", Category: catModule},
+			&cli.StringFlag{Name: "godebug", Usage: "Add godebug key=value line.", Category: catModule},
+			&cli.StringFlag{Name: "dropgodebug", Usage: "Drop godebug key.", Category: catModule},
 			&cli.BoolFlag{Name: "print", Usage: "Print go.mod after edits.", Category: catOutput},
 			&cli.BoolFlag{Name: "json", Usage: "Print go.mod after edits in JSON.", Category: catOutput},
+			&cli.BoolFlag{Name: "n", Usage: "Print commands that would be executed.", Category: catOutput},
+			&cli.BoolFlag{Name: "x", Usage: "Print commands as they are executed.", Category: catOutput},
 			&cli.StringSliceFlag{Name: "require", Usage: "Add a requirement (path@version).", Category: catModule},
 			&cli.StringSliceFlag{Name: "droprequire", Usage: "Drop a requirement (path).", Category: catModule},
 			&cli.StringSliceFlag{Name: "replace", Usage: "Add a replace directive old[@v]=new[@v].", Category: catModule},
@@ -635,6 +660,8 @@ func ModEdit() *cli.Command {
 			&cli.StringSliceFlag{Name: "dropretract", Usage: "Drop a retract directive (version range).", Category: catModule},
 			&cli.StringSliceFlag{Name: "tool", Usage: "Add a tool directive (path@version).", Category: catModule},
 			&cli.StringSliceFlag{Name: "droptool", Usage: "Drop a tool directive (path).", Category: catModule},
+			&cli.StringSliceFlag{Name: "ignore", Usage: "Add an ignore directive (path).", Category: catModule},
+			&cli.StringSliceFlag{Name: "dropignore", Usage: "Drop an ignore directive (path).", Category: catModule},
 		},
 		ArgsUsage: "[go.mod]",
 		Arguments: []cli.Argument{
@@ -647,9 +674,13 @@ func ModEdit() *cli.Command {
 
 func ModGraph() *cli.Command {
 	return &cli.Command{
-		Name:         "graph",
-		Usage:        "print module requirement graph",
-		Metadata:     map[string]any{"DocURL": docAnchor("Print_module_requirement_graph")},
+		Name:     "graph",
+		Usage:    "print module requirement graph",
+		Metadata: map[string]any{"DocURL": docAnchor("Print_module_requirement_graph")},
+		Flags: []cli.Flag{
+			&cli.StringFlag{Name: "go", Usage: "Report graph as loaded by Go version.", Category: catModule},
+			&cli.BoolFlag{Name: "x", Usage: "Print commands as they are executed.", Category: catOutput},
+		},
 		Action:       DummyAction,
 		OnUsageError: NoUsageErrror,
 	}
@@ -721,6 +752,7 @@ func ModWhy() *cli.Command {
 		},
 		Flags: []cli.Flag{
 			&cli.BoolFlag{Name: "m", Usage: "Treat arguments as modules.", Category: catModule},
+			&cli.BoolFlag{Name: "vendor", Usage: "Exclude tests of dependencies.", Category: catModule},
 		},
 		ArgsUsage:    "package...",
 		Arguments:    []cli.Argument{argDependencies()},
@@ -758,6 +790,8 @@ func WorkEdit() *cli.Command {
 			&cli.BoolFlag{Name: "fmt", Usage: "Reformat go.work.", Category: catWorkspace},
 			&cli.StringFlag{Name: "go", Usage: "Set expected Go language version.", Category: catWorkspace},
 			&cli.StringFlag{Name: "toolchain", Usage: "Set toolchain name.", Category: catWorkspace},
+			&cli.StringFlag{Name: "godebug", Usage: "Add godebug key=value line.", Category: catWorkspace},
+			&cli.StringFlag{Name: "dropgodebug", Usage: "Drop godebug key.", Category: catWorkspace},
 			&cli.BoolFlag{Name: "print", Usage: "Print go.work after edits.", Category: catOutput},
 			&cli.BoolFlag{Name: "json", Usage: "Print go.work after edits in JSON.", Category: catOutput},
 			&cli.StringSliceFlag{Name: "use", Usage: "Add use=path directive (may repeat).", Category: catWorkspace},
