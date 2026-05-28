@@ -333,6 +333,20 @@ func Generate() *cli.Command {
 	}
 }
 
+// updateFlag is a BoolFlag that also provides completion for the optional
+// "-u=patch" value accepted by "go get -u".
+type updateFlag struct {
+	*cli.BoolFlag
+}
+
+func (f *updateFlag) CompleteValues(_ context.Context, prefix string) map[string]string {
+	result := map[string]string{}
+	if strings.HasPrefix("patch", prefix) {
+		result["patch"] = "Update only patch versions."
+	}
+	return result
+}
+
 func Get() *cli.Command {
 	return &cli.Command{
 		Name:  "get",
@@ -342,7 +356,7 @@ func Get() *cli.Command {
 		},
 		Flags: append([]cli.Flag{
 			&cli.BoolFlag{Name: "t", Usage: "Also download test dependencies.", Category: catModule},
-			&cli.BoolFlag{Name: "u", Usage: "Update modules providing dependencies.", Category: catModule},
+			&updateFlag{&cli.BoolFlag{Name: "u", Usage: "Update modules providing dependencies.", Category: catModule}},
 			&cli.BoolFlag{Name: "tool", Usage: "Add packages as tool dependencies (tool directive).", Category: catModule},
 		}, buildFlags()...),
 		ArgsUsage:    "[package@[version|latest|patch|none]]...",

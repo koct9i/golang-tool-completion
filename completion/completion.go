@@ -102,6 +102,12 @@ type Completor interface {
 	Complete(ctx context.Context, prefix string) map[string]string
 }
 
+// FlagCompletableValues is implemented by flags that support optional value
+// completion via the -flag=value syntax (e.g. -u=patch for go get).
+type FlagCompletableValues interface {
+	CompleteValues(ctx context.Context, prefix string) map[string]string
+}
+
 type Argument struct {
 	Name        string
 	UsageText   string
@@ -187,23 +193,41 @@ func doCompletion(ctx context.Context, c *cli.Command, shell string, completeArg
 		// Complete flags
 		prefix := strings.TrimLeft(lastArg, "-")
 		dash := lastArg[:len(lastArg)-len(prefix)]
-		for _, flag := range lastCmd.Flags {
-			for _, name := range flag.Names() {
-				if !strings.HasPrefix(name, prefix) {
-					continue
+		if eqIdx := strings.IndexByte(prefix, '='); eqIdx >= 0 {
+			// Complete optional values for "-flagname=value" syntax
+			flagName := prefix[:eqIdx]
+			valuePrefix := prefix[eqIdx+1:]
+			for _, flag := range lastCmd.Flags {
+				for _, name := range flag.Names() {
+					if name != flagName {
+						continue
+					}
+					if cv, ok := flag.(FlagCompletableValues); ok {
+						for value, usage := range cv.CompleteValues(ctx, valuePrefix) {
+							result[dash+flagName+"="+value] = usage
+						}
+					}
 				}
-				if len(name) == 1 && len(dash) > 1 {
-					continue
+			}
+		} else {
+			for _, flag := range lastCmd.Flags {
+				for _, name := range flag.Names() {
+					if !strings.HasPrefix(name, prefix) {
+						continue
+					}
+					if len(name) == 1 && len(dash) > 1 {
+						continue
+					}
+					d := dash
+					if len(name) > 1 && prefix == "" && len(d) == 1 {
+						d = "--"
+					}
+					usage := ""
+					if docFlag, ok := flag.(cli.DocGenerationFlag); ok {
+						usage = docFlag.GetUsage()
+					}
+					result[d+name] = usage
 				}
-				d := dash
-				if len(name) > 1 && prefix == "" && len(d) == 1 {
-					d = "--"
-				}
-				usage := ""
-				if docFlag, ok := flag.(cli.DocGenerationFlag); ok {
-					usage = docFlag.GetUsage()
-				}
-				result[d+name] = usage
 			}
 		}
 	} else if len(lastCmd.Commands) != 0 {
