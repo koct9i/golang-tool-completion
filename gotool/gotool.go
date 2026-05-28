@@ -668,9 +668,9 @@ func ModEdit() *cli.Command {
 
 func ModGraph() *cli.Command {
 	return &cli.Command{
-		Name:         "graph",
-		Usage:        "print module requirement graph",
-		Metadata:     map[string]any{"DocURL": docAnchor("Print_module_requirement_graph")},
+		Name:     "graph",
+		Usage:    "print module requirement graph",
+		Metadata: map[string]any{"DocURL": docAnchor("Print_module_requirement_graph")},
 		Flags: []cli.Flag{
 			&cli.StringFlag{Name: "go", Usage: "Report graph as loaded by Go version.", Category: catModule},
 			&cli.BoolFlag{Name: "x", Usage: "Print commands as they are executed.", Category: catOutput},
