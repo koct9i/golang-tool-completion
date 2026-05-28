@@ -223,6 +223,7 @@ func Doc() *cli.Command {
 			&cli.BoolFlag{Name: "all", Usage: "Show all the documentation for the package.", Category: catOutput},
 			&cli.BoolFlag{Name: "c", Usage: "Respect case when matching symbols.", Category: catGeneral},
 			&cli.BoolFlag{Name: "cmd", Usage: "Treat a command (package main) like a regular package.", Category: catGeneral},
+			&cli.BoolFlag{Name: "ex", Usage: "Include executable examples.", Category: catOutput},
 			&cli.BoolFlag{Name: "http", Usage: "Serve HTML docs over HTTP.", Category: catTool},
 			&cli.BoolFlag{Name: "short", Usage: "One-line representation for each symbol.", Category: catOutput},
 			&cli.BoolFlag{Name: "src", Usage: "Show the full source code for the symbol.", Category: catOutput},
@@ -277,13 +278,14 @@ func Env() *cli.Command {
 func Fix() *cli.Command {
 	return &cli.Command{
 		Name:  "fix",
-		Usage: "update packages to use new APIs",
+		Usage: "apply fixes suggested by static checkers",
 		Metadata: map[string]any{
-			"DocURL": docAnchor("Update_packages_to_use_new_APIs"),
+			"DocURL": docAnchor("Apply_fixes_suggested_by_static_checkers"),
 		},
-		Flags: []cli.Flag{
-			&cli.StringFlag{Name: "fix", Usage: "Comma-separated list of fixes to run.", Category: catGeneral},
-		},
+		Flags: append([]cli.Flag{
+			&cli.BoolFlag{Name: "diff", Usage: "Print patch as unified diff instead of applying fixes.", Category: catOutput},
+			&cli.StringFlag{Name: "fixtool", Usage: "Use a different analysis tool with alternative or additional fixers.", Category: catTool},
+		}, buildFlags()...),
 		ArgsUsage:    "[packages]",
 		Arguments:    []cli.Argument{argSourcePackages()},
 		Action:       DummyAction,
@@ -578,6 +580,10 @@ func Vet() *cli.Command {
 			"DocURL": docAnchor("Report_likely_mistakes_in_packages"),
 		},
 		Flags: append([]cli.Flag{
+			&cli.IntFlag{Name: "c", Usage: "Display offending line with this many lines of context (default -1).", Category: catOutput},
+			&cli.BoolFlag{Name: "diff", Usage: "Print patch as unified diff instead of applying fixes.", Category: catOutput},
+			&cli.BoolFlag{Name: "fix", Usage: "Apply first suggested fix instead of printing diagnostic.", Category: catGeneral},
+			&cli.BoolFlag{Name: "json", Usage: "Emit JSON output.", Category: catOutput},
 			&cli.StringFlag{Name: "vettool", Usage: "Use a different analysis tool.", Category: catTool},
 		}, buildFlags()...),
 		ArgsUsage:    "[package]...",
