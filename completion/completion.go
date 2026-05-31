@@ -262,6 +262,27 @@ func doCompletion(ctx context.Context, c *cli.Command, shell string, completeArg
 		result = wordResult
 	}
 
+	if shell == "bash" {
+		// Workaround for readline stupidity.
+		common := lastArg
+		first := true
+		for suggest := range result {
+			if first {
+				first = false
+				if pos := strings.Index(suggest, common); pos > 0 {
+					common = suggest[:pos+len(common)]
+					continue
+				}
+			}
+			for !strings.HasPrefix(suggest, common) {
+				common = common[:len(common)-1]
+			}
+		}
+		if common != "" && !strings.Contains(common, lastArg) {
+			result[""] = "ambiguous"
+		}
+	}
+
 	buffer := bufio.NewWriter(c.Writer)
 
 	width := 0

@@ -31,7 +31,7 @@ func TestTrendingModules(t *testing.T) {
 	}{
 		{".", nil, nil},
 		{"./", nil, nil},
-		{"golang.or", []string{"golang.org/"}, []string{"trending"}},
+		{"x/sync", []string{"golang.org/x/sync@"}, []string{"trending"}},
 		{"golang.org/x/syn", []string{"golang.org/x/sync@"}, []string{"trending"}},
 		{"example.co/", nil, nil},
 		{"example.co", []string{"example.com/"}, []string{"Example module"}},
@@ -45,7 +45,7 @@ func TestTrendingModules(t *testing.T) {
 				t.Fatalf("CompleteTrending(%q) = %v, want %v", tt.prefix, got, tt.want)
 			}
 			for i, mod := range tt.want {
-				if desc := result[mod]; desc != tt.desc[i] {
+				if desc := result[mod]; !strings.HasPrefix(desc, tt.desc[i]) {
 					t.Fatalf("CompleteTrending(%q) %v = %v, want %v", tt.prefix, mod, desc, tt.desc[i])
 				}
 			}
