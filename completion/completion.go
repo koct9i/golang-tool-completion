@@ -99,7 +99,7 @@ func doCompletionScript(writer io.Writer, shell, command, handler string, instal
 }
 
 type Completor interface {
-	Complete(ctx context.Context, prefix string) map[string]string
+	Complete(ctx context.Context, result map[string]string, prefix string)
 }
 
 type Argument struct {
@@ -107,7 +107,7 @@ type Argument struct {
 	UsageText   string
 	Max         int
 	Destination *string
-	OnComplete  func(context.Context, string) map[string]string
+	OnComplete  func(context.Context, map[string]string, string)
 }
 
 var _ Completor = (*Argument)(nil)
@@ -143,21 +143,41 @@ func (a *Argument) Parse(s []string) ([]string, error) {
 	return s, nil
 }
 
-func (a *Argument) Complete(ctx context.Context, prefix string) map[string]string {
+func (a *Argument) Complete(ctx context.Context, result map[string]string, prefix string) {
 	if a.OnComplete != nil {
-		return a.OnComplete(ctx, prefix)
+		a.OnComplete(ctx, result, prefix)
 	}
-	return nil
 }
 
+//nolint:cyclop //complex
 func doCompletion(ctx context.Context, c *cli.Command, shell string, completeArgs []string) error {
 	lastCmd := c.Root()
 	var lastArg string
+	var wordPrefix string
 
 	if len(completeArgs) > 0 {
-		lastArg = completeArgs[len(completeArgs)-1]
-
 		args := append([]string{lastCmd.Name}, completeArgs...)
+
+		if shell == "bash" {
+			// Handle word break in "--flag=value".
+			for i := 0; i < len(args)-1; i++ { //nolint:intrange //no
+				if strings.HasPrefix(args[i], "-") && args[i+1] == "=" {
+					wordPrefix = args[i] + args[i+1]
+					if i < len(args)-2 {
+						args[i] = wordPrefix + args[i+2]
+						args = append(args[:i+1], args[i+3:]...)
+					} else {
+						args[i] = wordPrefix
+						args = args[:i+1]
+					}
+				} else {
+					wordPrefix = ""
+				}
+			}
+		}
+
+		lastArg = args[len(args)-1]
+
 		if strings.HasPrefix(args[len(args)-1], "-") {
 			args[len(args)-1] = "--"
 		}
@@ -187,6 +207,7 @@ func doCompletion(ctx context.Context, c *cli.Command, shell string, completeArg
 		// Complete flags
 		prefix := strings.TrimLeft(lastArg, "-")
 		dash := lastArg[:len(lastArg)-len(prefix)]
+		prefix, _, _ = strings.Cut(prefix, "=")
 		for _, flag := range lastCmd.Flags {
 			for _, name := range flag.Names() {
 				if !strings.HasPrefix(name, prefix) {
@@ -198,6 +219,10 @@ func doCompletion(ctx context.Context, c *cli.Command, shell string, completeArg
 				d := dash
 				if len(name) > 1 && prefix == "" && len(d) == 1 {
 					d = "--"
+				}
+				if completor, ok := flag.(Completor); ok {
+					completor.Complete(ctx, result, lastArg)
+					continue
 				}
 				usage := ""
 				if docFlag, ok := flag.(cli.DocGenerationFlag); ok {
@@ -224,7 +249,17 @@ func doCompletion(ctx context.Context, c *cli.Command, shell string, completeArg
 		}
 	} else if len(ArgumentCompletors) > 0 && ParsedArguments[len(ParsedArguments)-1] == lastArg {
 		// Complete arguments
-		result = ArgumentCompletors[len(ArgumentCompletors)-1].Complete(ctx, ParsedArguments[len(ParsedArguments)-1])
+		ArgumentCompletors[len(ArgumentCompletors)-1].Complete(ctx, result, ParsedArguments[len(ParsedArguments)-1])
+	}
+
+	if wordPrefix != "" {
+		wordResult := make(map[string]string, len(result))
+		for suggest, usage := range result {
+			if suffix, found := strings.CutPrefix(suggest, wordPrefix); found {
+				wordResult[suffix] = usage
+			}
+		}
+		result = wordResult
 	}
 
 	buffer := bufio.NewWriter(c.Writer)

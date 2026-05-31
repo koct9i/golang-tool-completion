@@ -333,6 +333,26 @@ func Generate() *cli.Command {
 	}
 }
 
+type getUpdateFlag struct {
+	cli.StringFlag
+}
+
+// Handle "-flag" as "-flag=true".
+func (f *getUpdateFlag) IsBoolFlag() bool {
+	return true
+}
+
+func (f *getUpdateFlag) Complete(ctx context.Context, result map[string]string, prefix string) {
+	//nolint:gocritic //prefix
+	if strings.HasPrefix("-u", prefix) {
+		result["-u"] = f.Usage
+	}
+	//nolint:gocritic //prefix
+	if strings.HasPrefix("-u=patch", prefix) {
+		result["-u=patch"] = "Patch-only update modules providing dependencies."
+	}
+}
+
 func Get() *cli.Command {
 	return &cli.Command{
 		Name:  "get",
@@ -342,7 +362,7 @@ func Get() *cli.Command {
 		},
 		Flags: append([]cli.Flag{
 			&cli.BoolFlag{Name: "t", Usage: "Also download test dependencies.", Category: catModule},
-			&cli.BoolFlag{Name: "u", Usage: "Update modules providing dependencies.", Category: catModule},
+			&getUpdateFlag{StringFlag: cli.StringFlag{Name: "u", Usage: "Update modules providing dependencies.", Category: catModule}},
 			&cli.BoolFlag{Name: "tool", Usage: "Add packages as tool dependencies (tool directive).", Category: catModule},
 		}, buildFlags()...),
 		ArgsUsage:    "[package@[version|latest|patch|none]]...",

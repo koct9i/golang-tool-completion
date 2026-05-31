@@ -16,39 +16,31 @@ var (
 	DocPackage      string
 )
 
-func CompleteModules(ctx context.Context, prefix string) map[string]string {
+func CompleteModules(ctx context.Context, result map[string]string, prefix string) {
 	if strings.HasPrefix(prefix, ".") {
-		return nil
+		return
 	}
-	result := make(map[string]string)
 	CompleteTrending(result, prefix)
 	NewModCache().CompleteModules(result, prefix)
 	fixupLoneResult(result)
-	return result
 }
 
-func CompletePackages(ctx context.Context, prefix string) map[string]string {
+func CompletePackages(ctx context.Context, result map[string]string, prefix string) {
 	if strings.HasPrefix(prefix, ".") {
-		return nil
+		return
 	}
-	result := make(map[string]string)
 	CompleteTrending(result, prefix)
 	NewModCache().CompletePackages(result, prefix)
 	fixupLoneResult(result)
-	return result
 }
 
-func CompleteDependencies(ctx context.Context, prefix string) map[string]string {
-	if strings.HasPrefix(prefix, ".") {
-		return nil
+func CompleteDependencies(ctx context.Context, result map[string]string, prefix string) {
+	if !strings.HasPrefix(prefix, ".") {
+		completeDependencies(ctx, result, prefix)
 	}
-	result := make(map[string]string)
-	completeDependencies(ctx, result, prefix)
-	return result
 }
 
-func CompleteDocPackage(ctx context.Context, prefix string) map[string]string {
-	result := make(map[string]string)
+func CompleteDocPackage(ctx context.Context, result map[string]string, prefix string) {
 	parent, tail := path.Split(prefix)
 	pkgname, symbol, hasDot := strings.Cut(tail, ".")
 	if hasDot && pkgname != "" {
@@ -62,25 +54,10 @@ func CompleteDocPackage(ctx context.Context, prefix string) map[string]string {
 		}
 		fixupLoneResult(result)
 	}
-	return result
 }
 
-func CompleteDocSymbol(ctx context.Context, prefix string) map[string]string {
-	result := make(map[string]string)
+func CompleteDocSymbol(ctx context.Context, result map[string]string, prefix string) {
 	completePackageSymbols(ctx, result, DocPackage, prefix, true)
-	return result
-}
-
-func CompleteTools(ctx context.Context, prefix string) map[string]string {
-	result := make(map[string]string)
-	completeTools(ctx, result, prefix)
-	return result
-}
-
-func CompleteEnv(ctx context.Context, prefix string) map[string]string {
-	result := make(map[string]string)
-	completeEnv(ctx, result, prefix)
-	return result
 }
 
 func completeStandardPackages(ctx context.Context, result map[string]string, prefix string) {
@@ -131,7 +108,7 @@ func completePackageSymbols(ctx context.Context, result map[string]string, pkg s
 	}
 }
 
-func completeTools(ctx context.Context, result map[string]string, prefix string) {
+func CompleteTools(ctx context.Context, result map[string]string, prefix string) {
 	output, err := runGo(ctx, "tool")
 	if err != nil {
 		return
@@ -153,7 +130,7 @@ func completeTools(ctx context.Context, result map[string]string, prefix string)
 	}
 }
 
-func completeEnv(ctx context.Context, result map[string]string, prefix string) {
+func CompleteEnv(ctx context.Context, result map[string]string, prefix string) {
 	output, err := runGo(ctx, "env")
 	if err != nil {
 		return
