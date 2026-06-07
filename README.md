@@ -14,6 +14,7 @@ All invocation besides `completion` and `--help` are forwarded unchanged to the 
 go build -h          → prints complete usage and link to documentation
 go build -<TAB>      → completes command flags with a short description
 go get <TAB>         → completes package paths from cached and trending modules
+go get <substr><TAB> → completes module paths by substring >= 3 chars long
 go get <pkg>@<TAB>   → completes package version
 go doc <pkg>.<TAB>   → completes package symbol
 go tool <TAB>        → completes tool command name
