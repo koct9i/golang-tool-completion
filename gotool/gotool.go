@@ -150,15 +150,6 @@ func argSourcePackages() cli.Argument {
 	}
 }
 
-func argPackagesVersion() cli.Argument {
-	return &completion.Argument{
-		Name:       "package",
-		UsageText:  "Package with version, Documentation: " + docAnchor("Package_lists_and_patterns"),
-		Max:        -1,
-		OnComplete: gomodules.CompletePackages,
-	}
-}
-
 func Bug() *cli.Command {
 	return &cli.Command{
 		Name:         "bug",
@@ -354,6 +345,7 @@ func (f *getUpdateFlag) Complete(ctx context.Context, result map[string]string, 
 }
 
 func Get() *cli.Command {
+	var tool bool
 	return &cli.Command{
 		Name:  "get",
 		Usage: "add dependencies to current module and install them",
@@ -363,10 +355,23 @@ func Get() *cli.Command {
 		Flags: append([]cli.Flag{
 			&cli.BoolFlag{Name: "t", Usage: "Also download test dependencies.", Category: catModule},
 			&getUpdateFlag{StringFlag: cli.StringFlag{Name: "u", Usage: "Update modules providing dependencies.", Category: catModule}},
-			&cli.BoolFlag{Name: "tool", Usage: "Add packages as tool dependencies (tool directive).", Category: catModule},
+			&cli.BoolFlag{Name: "tool", Usage: "Add packages as tool dependencies (tool directive).", Category: catModule, Destination: &tool},
 		}, buildFlags()...),
-		ArgsUsage:    "[package@[version|latest|patch|none]]...",
-		Arguments:    []cli.Argument{argPackagesVersion()},
+		ArgsUsage: "[package@[version|latest|patch|none]]...",
+		Arguments: []cli.Argument{
+			&completion.Argument{
+				Name:      "package",
+				UsageText: "Package with version, Documentation: " + docAnchor("Package_lists_and_patterns"),
+				Max:       -1,
+				OnComplete: func(ctx context.Context, m map[string]string, s string) {
+					if tool {
+						gomodules.CompleteMainPackages(ctx, m, s)
+					} else {
+						gomodules.CompletePackages(ctx, m, s)
+					}
+				},
+			},
+		},
 		Action:       DummyAction,
 		OnUsageError: NoUsageErrror,
 	}
@@ -426,9 +431,16 @@ func Install() *cli.Command {
 		Metadata: map[string]any{
 			"DocURL": docAnchor("Compile_and_install_packages_and_dependencies"),
 		},
-		Flags:        buildFlags(),
-		ArgsUsage:    "[package[@version|latest]]...",
-		Arguments:    []cli.Argument{argPackagesVersion()},
+		Flags:     buildFlags(),
+		ArgsUsage: "[package[@version|latest]]...",
+		Arguments: []cli.Argument{
+			&completion.Argument{
+				Name:       "package",
+				UsageText:  "Package with version, Documentation: " + docAnchor("Package_lists_and_patterns"),
+				Max:        -1,
+				OnComplete: gomodules.CompleteMainPackages,
+			},
+		},
 		Action:       DummyAction,
 		OnUsageError: NoUsageErrror,
 	}
@@ -482,7 +494,7 @@ func Run() *cli.Command {
 				Name:       "package",
 				UsageText:  "Program package to run",
 				Max:        1,
-				OnComplete: gomodules.CompletePackages,
+				OnComplete: gomodules.CompleteMainPackages,
 			},
 			&completion.Argument{
 				Name:      "arguments",

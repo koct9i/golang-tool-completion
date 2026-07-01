@@ -317,6 +317,7 @@ func doCompletion(ctx context.Context, c *cli.Command, shell string, completeArg
 
 func Completion() *cli.Command {
 	var complete bool
+	var debug bool
 	var install bool
 	var command string
 	var shell string
@@ -333,6 +334,11 @@ func Completion() *cli.Command {
 				Name:        "complete",
 				Destination: &complete,
 				Usage:       "Generate completion for arguments.",
+			},
+			&cli.BoolFlag{
+				Name:        "debug",
+				Destination: &debug,
+				Usage:       "Print debug log.",
 			},
 			&cli.BoolFlag{
 				Name:        "install",
@@ -394,6 +400,11 @@ func Completion() *cli.Command {
 			}
 			if !complete {
 				return doCompletionScript(c.Writer, shell, command, c.Root().Name, install)
+			}
+			if debug {
+				gomodules.Log = func(format string, args ...any) {
+					fmt.Fprintf(c.ErrWriter, format+"\n", args...)
+				}
 			}
 			return doCompletion(ctx, c, shell, completeArgs)
 		},
