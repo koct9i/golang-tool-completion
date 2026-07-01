@@ -1,9 +1,12 @@
 package gomodules
 
 import (
+	"context"
 	"embed"
 	"io/fs"
 	"maps"
+	"os"
+	"path/filepath"
 	"slices"
 	"testing"
 )
@@ -99,5 +102,37 @@ func testModCache(t *testing.T, dir string) ModCache {
 	return ModCache{
 		fs:  readDirFS,
 		log: t.Logf,
+	}
+}
+
+func TestCompleteProgramsFromNewestCachedModule(t *testing.T) {
+	root := t.TempDir()
+	writeFile := func(name, data string) {
+		t.Helper()
+		if err := os.MkdirAll(filepath.Dir(name), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(name, []byte(data), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	writeFile(filepath.Join(root, "example.com", "prog@v1.0.0", "go.mod"), "module example.com/prog\n\ngo 1.23\n")
+	writeFile(filepath.Join(root, "example.com", "prog@v1.0.0", "cmd", "old", "main.go"), "package main\nfunc main() {}\n")
+	writeFile(filepath.Join(root, "example.com", "prog@v1.2.0", "go.mod"), "module example.com/prog\n\ngo 1.23\n")
+	writeFile(filepath.Join(root, "example.com", "prog@v1.2.0", "main.go"), "package main\nfunc main() {}\n")
+	writeFile(filepath.Join(root, "example.com", "prog@v1.2.0", "cmd", "new", "main.go"), "package main\nfunc main() {}\n")
+	writeFile(filepath.Join(root, "example.com", "prog@v1.2.0", "pkg", "pkg.go"), "package pkg\n")
+
+	cache := ModCache{fs: os.DirFS(root).(fs.ReadDirFS), root: root, log: t.Logf}
+	result := map[string]string{}
+	cache.CompletePrograms(context.Background(), result, "example.com/prog/c")
+
+	got := slices.Sorted(maps.Keys(result))
+	want := []string{"example.com/prog/cmd/", "example.com/prog/cmd/new"}
+	if !slices.Equal(got, want) {
+		t.Fatalf("CompletePrograms() = %v, want %v", got, want)
+	}
+	if result["example.com/prog/cmd/new"] != "main" {
+		t.Fatalf("main package statuses = %#v", result)
 	}
 }

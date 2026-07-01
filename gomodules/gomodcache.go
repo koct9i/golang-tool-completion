@@ -2,13 +2,16 @@ package gomodules
 
 import (
 	"bufio"
+	"context"
 	"io/fs"
 	"os"
+	"os/exec"
 	"path"
 	"path/filepath"
 	"strings"
 
 	"golang.org/x/mod/module"
+	"golang.org/x/mod/semver"
 )
 
 // ModCache reads a Go module cache laid out like GOPATH/pkg/mod (or GOMODCACHE).
@@ -31,8 +34,9 @@ import (
 //   - Download metadata lives under cache/download/<escaped-module>/@v. The
 //     @v/list file contains newline-separated versions known to the go command.
 type ModCache struct {
-	fs  fs.ReadDirFS
-	log func(format string, args ...any)
+	fs   fs.ReadDirFS
+	root string
+	log  func(format string, args ...any)
 }
 
 func GetModCachePath() string {
@@ -52,11 +56,13 @@ func GetModCachePath() string {
 }
 
 func NewModCache() ModCache {
+	root := GetModCachePath()
 	//nolint:errcheck //fs.ReadDirFS
-	fs := os.DirFS(GetModCachePath()).(fs.ReadDirFS)
+	fs := os.DirFS(root).(fs.ReadDirFS)
 	return ModCache{
-		fs:  fs,
-		log: func(format string, args ...any) {},
+		fs:   fs,
+		root: root,
+		log:  func(format string, args ...any) {},
 	}
 }
 
@@ -70,6 +76,79 @@ func (m ModCache) CompleteModules(result map[string]string, prefix string) {
 		m.completeVersion(result, module, version, escaped, "")
 	} else {
 		m.completeModule(result, module, escaped)
+	}
+}
+
+func (m ModCache) CompletePrograms(ctx context.Context, result map[string]string, prefix string) {
+	m.CompletePackages(result, prefix)
+	if strings.HasPrefix(prefix, ".") || m.root == "" {
+		return
+	}
+
+	pkg, version, hasVersion := strings.Cut(prefix, "@")
+	escaped, err := escapePath(pkg)
+	if err != nil {
+		return
+	}
+	for i := len(escaped); i >= 0; i-- {
+		if i != len(escaped) && i > 0 && escaped[i-1] != filepath.Separator {
+			continue
+		}
+		modpath := strings.TrimSuffix(escaped[:i], string(filepath.Separator))
+		if modpath == "" {
+			continue
+		}
+		if dir, ok := m.cachedModuleDir(modpath, version, hasVersion); ok {
+			m.completeMainPackages(ctx, result, prefix, dir)
+			return
+		}
+	}
+}
+
+func (m ModCache) cachedModuleDir(modpath, version string, hasVersion bool) (string, bool) {
+	moddir, modname := filepath.Split(modpath)
+	entries, err := m.fs.ReadDir(filepath.Clean(moddir))
+	if err != nil {
+		return "", false
+	}
+	var bestName, bestVersion string
+	for _, entry := range entries {
+		name := entry.Name()
+		if !entry.IsDir() || !strings.HasPrefix(name, modname+"@") {
+			continue
+		}
+		cachedVersion := strings.TrimPrefix(name, modname+"@")
+		if v, err := module.UnescapeVersion(cachedVersion); err == nil {
+			cachedVersion = v
+		}
+		if hasVersion && cachedVersion != version {
+			continue
+		}
+		if bestName == "" || semver.Compare(cachedVersion, bestVersion) > 0 {
+			bestName, bestVersion = name, cachedVersion
+		}
+	}
+	if bestName == "" {
+		return "", false
+	}
+	return filepath.Join(m.root, moddir, bestName), true
+}
+
+func (m ModCache) completeMainPackages(ctx context.Context, result map[string]string, prefix, dir string) {
+	//nolint:gosec //command
+	cmd := exec.CommandContext(ctx, "go", "list", "-f", `{{if eq .Name "main"}}{{.ImportPath}}{{end}}`, "./...")
+	cmd.Dir = dir
+	output, err := cmd.Output()
+	if err != nil {
+		m.log("go list main packages in %q error %v", dir, err)
+		return
+	}
+	for line := range strings.Lines(string(output)) {
+		pkg := strings.TrimSpace(line)
+		if pkg == "" || !strings.HasPrefix(pkg, prefix) {
+			continue
+		}
+		result[pkg] = "main"
 	}
 }
 

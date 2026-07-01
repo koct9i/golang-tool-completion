@@ -482,7 +482,7 @@ func Run() *cli.Command {
 				Name:       "package",
 				UsageText:  "Program package to run",
 				Max:        1,
-				OnComplete: gomodules.CompletePackages,
+				OnComplete: gomodules.CompletePrograms,
 			},
 			&completion.Argument{
 				Name:      "arguments",
