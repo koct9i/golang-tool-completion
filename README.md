@@ -2,6 +2,8 @@
 
 Shell tab-completion for the `go` command — covering every subcommand, flag, and package/module argument.
 
+Also provides comprehensive `--help` for command flags with links to online documentation.
+
 ## Overview
 
 `golang-tool-completion` is a transparent wrapper around the standard `go` tool.
@@ -19,6 +21,8 @@ go get <pkg>@<TAB>   → completes package version
 go doc <pkg>.<TAB>   → completes package symbol
 go tool <TAB>        → completes tool command name
 ```
+
+For example `go i<TAB> gopls<TAB>@l<TAB>` for `go install golang.org/x/tools/gopls@latest`.
 
 ## Installation
 
@@ -62,6 +66,8 @@ Without `--install` it prints completion script to stdout:
 golang-tool-completion completion [SHELL]
 ```
 
+For example to source script: `. <(golang-tool-completion completion bash)`.
+
 ## How it works
 
 ```
@@ -87,7 +93,7 @@ List of trending modules is read from `~/.config/golang-tool-completion/trending
 fallback is [embedded](gomodules/trending.txt) list of 1000 trending go modules from [goproxy.cn](https://goproxy.cn/stats).
 
 To disable trending modules in completion: `golang-tool-completion completion --disable-trending`.
-To add modules: `golang-tool-completion completion --add-trending <module> [--description <description>]`.
+To add own modules: `golang-tool-completion completion --add-trending <module> [--description <description>]`.
 
 ## Links
 
