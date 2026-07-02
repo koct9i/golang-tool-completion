@@ -38,6 +38,7 @@ github.com/josharian/impl	generate method stubs https://github.com/josharian/imp
 github.com/jstemmer/go-junit-report/v2	convert go test output to JUnit XML https://github.com/jstemmer/go-junit-report
 github.com/kisielk/errcheck	error return checker https://github.com/kisielk/errcheck
 github.com/klauspost/asmfmt/cmd/asmfmt	Go assembler formatter https://github.com/klauspost/asmfmt
+github.com/koct9i/golang-tool-completion	shell completion for golang tool https://github.com/koct9i/golang-tool-completion
 github.com/kubernetes/code-generator/cmd/client-gen	Kubernetes client generator https://github.com/kubernetes/code-generator
 github.com/mailru/easyjson/easyjson	fast JSON code generator https://github.com/mailru/easyjson
 github.com/mgechev/revive	extensible Go linter https://revive.run
