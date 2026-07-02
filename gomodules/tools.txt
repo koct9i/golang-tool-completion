@@ -1,0 +1,52 @@
+golang.org/x/tools/gopls	Go language server
+golang.org/x/tools/cmd/goimports	update imports in Go source files
+golang.org/x/tools/cmd/stringer	generate String methods for integer types
+golang.org/x/tools/cmd/godoc	serve Go documentation
+honnef.co/go/tools/cmd/staticcheck	static analysis for Go programs
+mvdan.cc/gofumpt	stricter gofmt
+mvdan.cc/sh/v3/cmd/shfmt	shell formatter
+github.com/golangci/golangci-lint/cmd/golangci-lint	fast Go linters runner
+github.com/goreleaser/goreleaser/v2	release automation for Go projects
+github.com/securego/gosec/v2/cmd/gosec	Go security checker
+github.com/go-delve/delve/cmd/dlv	Delve debugger
+github.com/air-verse/air	live reload for Go apps
+github.com/swaggo/swag/cmd/swag	generate Swagger docs
+github.com/sqlc-dev/sqlc/cmd/sqlc	generate Go from SQL
+github.com/pressly/goose/v3/cmd/goose	database migration tool
+github.com/vektra/mockery/v2	generate mocks for interfaces
+go.uber.org/mock/mockgen	generate Go mocks
+github.com/google/wire/cmd/wire	compile-time dependency injection
+github.com/cosmtrek/air	live reload for Go apps
+github.com/cespare/reflex	watch files and rerun commands
+github.com/bufbuild/buf/cmd/buf	Protocol Buffers toolchain
+google.golang.org/protobuf/cmd/protoc-gen-go	Go protobuf code generator
+google.golang.org/grpc/cmd/protoc-gen-go-grpc	Go gRPC code generator
+github.com/grpc-ecosystem/grpc-gateway/v2/protoc-gen-grpc-gateway	gRPC-Gateway generator
+github.com/grpc-ecosystem/grpc-gateway/v2/protoc-gen-openapiv2	OpenAPI generator for gRPC-Gateway
+entgo.io/ent/cmd/ent	entity framework code generator
+github.com/99designs/gqlgen	GraphQL server generator
+github.com/deepmap/oapi-codegen/v2/cmd/oapi-codegen	OpenAPI Go code generator
+github.com/kubernetes/code-generator/cmd/client-gen	Kubernetes client generator
+sigs.k8s.io/controller-tools/cmd/controller-gen	Kubernetes controller code generator
+github.com/onsi/ginkgo/v2/ginkgo	Ginkgo test runner
+github.com/cweill/gotests/gotests	generate Go tests
+github.com/rakyll/gotest	go test with colors
+github.com/jstemmer/go-junit-report/v2	convert go test output to JUnit XML
+github.com/go-task/task/v3/cmd/task	task runner
+github.com/magefile/mage	make-like build tool using Go
+github.com/cortesi/modd/cmd/modd	developer daemon and file watcher
+github.com/cucumber/godog/cmd/godog	BDD test runner
+github.com/tomnomnom/gron	make JSON greppable
+github.com/tomnomnom/httprobe	probe HTTP and HTTPS servers
+github.com/tomnomnom/assetfinder	find related domains
+github.com/projectdiscovery/nuclei/v3/cmd/nuclei	vulnerability scanner
+github.com/projectdiscovery/httpx/cmd/httpx	HTTP toolkit
+github.com/projectdiscovery/subfinder/v2/cmd/subfinder	subdomain discovery tool
+github.com/charmbracelet/gum	glamorous shell scripts
+github.com/charmbracelet/glow	terminal markdown renderer
+github.com/evilmartians/lefthook	Git hooks manager
+github.com/google/addlicense	add license headers
+github.com/google/go-licenses	analyze Go package licenses
+github.com/segmentio/golines	shorten long Go lines
+github.com/nametake/golangci-lint-langserver	golangci-lint language server
+github.com/reviewdog/reviewdog	automated code review comments

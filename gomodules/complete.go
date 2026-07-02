@@ -38,7 +38,7 @@ func CompleteMainPackages(ctx context.Context, result map[string]string, prefix 
 	if strings.HasPrefix(prefix, ".") {
 		return
 	}
-	CompleteTrending(result, prefix)
+	CompleteToolPackages(result, prefix)
 	NewModCache().CompleteMainPackages(ctx, result, prefix)
 	fixupLoneResult(result)
 }

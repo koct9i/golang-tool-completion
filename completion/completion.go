@@ -324,6 +324,7 @@ func Completion() *cli.Command {
 	var completeArgs []string
 	var disableTrendingModules bool
 	var addTrendingModules []string
+	var addTools []string
 	var descriptions []string
 	return &cli.Command{
 		Name:      "completion",
@@ -367,9 +368,18 @@ func Completion() *cli.Command {
 				},
 			},
 			&cli.StringFlag{
+				Name:     "add-tool",
+				Usage:    "Add main packages with descriptions into list of tools",
+				Category: "Tools",
+				Action: func(ctx context.Context, c *cli.Command, arg string) error {
+					addTools = append(addTools, arg)
+					return nil
+				},
+			},
+			&cli.StringFlag{
 				Name:     "description",
-				Usage:    "Set description for added trending modules",
-				Category: "Trending",
+				Usage:    "Set description for added trending modules or tools",
+				Category: "General",
 				Action: func(ctx context.Context, c *cli.Command, arg string) error {
 					descriptions = append(descriptions, arg)
 					return nil
@@ -394,6 +404,9 @@ func Completion() *cli.Command {
 			}
 			if len(addTrendingModules) > 0 {
 				return gomodules.AddTrending(addTrendingModules, descriptions)
+			}
+			if len(addTools) > 0 {
+				return gomodules.AddTools(addTools, descriptions)
 			}
 			if shell == "" {
 				shell = filepath.Base(os.Getenv("SHELL"))

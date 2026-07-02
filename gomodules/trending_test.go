@@ -2,6 +2,8 @@ package gomodules
 
 import (
 	"maps"
+	"os"
+	"path/filepath"
 	"slices"
 	"strings"
 	"testing"
@@ -50,5 +52,75 @@ func TestTrendingModules(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+func TestToolPackages(t *testing.T) {
+	current := tools
+	t.Cleanup(func() {
+		tools = current
+	})
+
+	for line := range strings.Lines(tools) {
+		line, _ = strings.CutSuffix(line, "\n")
+		pkg, _, _ := strings.Cut(line, "\t")
+		if err := module.CheckImportPath(pkg); err != nil {
+			t.Errorf("Tool package %q %v", pkg, err)
+		}
+	}
+
+	for _, tt := range []struct {
+		prefix string
+		want   []string
+		desc   []string
+	}{
+		{".", nil, nil},
+		{"./", nil, nil},
+		{"gopls", []string{"golang.org/x/tools/gopls@"}, []string{"Go language server"}},
+		{"golang.org/x/tools/g", []string{"golang.org/x/tools/gopls@"}, []string{"Go language server"}},
+		{"github.com/golangci/", []string{"github.com/golangci/golangci-lint/"}, []string{"fast Go linters runner"}},
+	} {
+		t.Run(tt.prefix, func(t *testing.T) {
+			result := map[string]string{}
+			CompleteToolPackages(result, tt.prefix)
+			got := slices.Sorted(maps.Keys(result))
+			if !slices.Equal(got, tt.want) {
+				t.Fatalf("CompleteToolPackages(%q) = %v, want %v", tt.prefix, got, tt.want)
+			}
+			for i, pkg := range tt.want {
+				if desc := result[pkg]; !strings.HasPrefix(desc, tt.desc[i]) {
+					t.Fatalf("CompleteToolPackages(%q) %v = %v, want %v", tt.prefix, pkg, desc, tt.desc[i])
+				}
+			}
+		})
+	}
+}
+
+func TestAddTools(t *testing.T) {
+	current := tools
+	t.Cleanup(func() {
+		tools = current
+	})
+	config := t.TempDir()
+	t.Setenv("XDG_CONFIG_HOME", config)
+
+	if err := AddTools([]string{"example.com/tool/cmd/tool"}, []string{"Example tool"}); err != nil {
+		t.Fatal(err)
+	}
+
+	path := filepath.Join(config, "golang-tool-completion", "tools.txt")
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(data), "example.com/tool/cmd/tool\tExample tool\n") {
+		t.Fatalf("tools file %q does not contain added tool: %q", path, string(data))
+	}
+
+	tools = ""
+	result := map[string]string{}
+	CompleteToolPackages(result, "example.com/tool/c")
+	if result["example.com/tool/cmd/"] != "Example tool" {
+		t.Fatalf("CompleteToolPackages() = %#v, want added tool", result)
 	}
 }
