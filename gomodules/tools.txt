@@ -9,10 +9,8 @@ github.com/charmbracelet/gum	glamorous shell scripts https://github.com/charmbra
 github.com/charmbracelet/vhs	terminal GIF recorder https://github.com/charmbracelet/vhs
 github.com/client9/misspell/cmd/misspell	spell checker for source code https://github.com/client9/misspell
 github.com/cortesi/modd/cmd/modd	developer daemon and file watcher https://github.com/cortesi/modd
-github.com/cosmtrek/air	live reload for Go apps https://github.com/air-verse/air
 github.com/cucumber/godog/cmd/godog	BDD test runner https://go-dog.github.io/godog
 github.com/cweill/gotests/gotests	generate Go tests https://github.com/cweill/gotests
-github.com/deepmap/oapi-codegen/cmd/oapi-codegen	OpenAPI Go code generator https://github.com/oapi-codegen/oapi-codegen
 github.com/elastic/crd-ref-docs	CRD Reference Documentation Generator https://github.com/elastic/crd-ref-docs
 github.com/evilmartians/lefthook/v2	Git hooks manager https://lefthook.dev
 github.com/fatih/gomodifytags	update struct field tags https://github.com/fatih/gomodifytags
@@ -28,7 +26,7 @@ github.com/golang/mock/mockgen	generate Go mocks https://github.com/golang/mock
 github.com/google/addlicense	add license headers https://github.com/google/addlicense
 github.com/google/go-containerregistry/cmd/crane	container registry CLI https://github.com/google/go-containerregistry
 github.com/google/go-licenses	analyze Go package licenses https://github.com/google/go-licenses
-github.com/google/osv-scanner/cmd/osv-scanner	vulnerability scanner https://google.github.io/osv-scanner
+github.com/google/osv-scanner/v2/cmd/osv-scanner	vulnerability scanner https://google.github.io/osv-scanner
 github.com/goreleaser/goreleaser/v2	release automation for Go projects https://goreleaser.com
 github.com/go-swagger/go-swagger/cmd/swagger	Go Swagger OpenAPI 2.0 tool https://goswagger.io
 github.com/go-task/task/v3/cmd/task	task runner https://taskfile.dev
