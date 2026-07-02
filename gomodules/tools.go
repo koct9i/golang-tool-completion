@@ -6,12 +6,20 @@ import (
 	"os"
 )
 
+// Well-known installable Go tools are curated from project home pages and these indexes:
 // https://github.com/avelino/awesome-go#go-tools
 // https://github.com/avelino/awesome-go#devops-tools
 // https://github.com/avelino/awesome-go#database-tools
 // https://github.com/avelino/awesome-go#continuous-integration
 // https://github.com/avelino/awesome-go#utilities
 // https://github.com/gobuild/awesome-go-tools
+// https://github.com/akavel/awesome-go#code-analysis
+// https://github.com/akavel/awesome-go#command-line
+// https://github.com/akavel/awesome-go#testing
+// https://go.dev/wiki/CodeTools
+// https://pkg.go.dev/golang.org/x/tools/cmd
+// https://pkg.go.dev/golang.org/x/vuln/cmd/govulncheck
+// https://pkg.go.dev/golang.org/x/perf/cmd/benchstat
 
 //go:embed tools.txt
 var tools string

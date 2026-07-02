@@ -96,8 +96,9 @@ fallback is [embedded](gomodules/trending.txt) list of 1000 trending go modules 
 To disable trending modules in completion: `golang-tool-completion completion --disable-trending`.
 To add own modules: `golang-tool-completion completion --add-trending <module> [--description <description>]`.
 
-List of main package for tool programs is read from `~/.config/golang-tool-completion/tools.txt`,
-fallback is [embedded](gomodules/tools.txt) list picked from [awesome-go](https://github.com/avelino/awesome-go).
+List of main packages for tool programs is read from `~/.config/golang-tool-completion/tools.txt`,
+fallback is an [embedded](gomodules/tools.txt) list of well-known Go tools. Each entry includes a short description and, where available, a project home page.
+The list is curated from project documentation plus sources such as [awesome-go](https://github.com/avelino/awesome-go), [awesome-go-tools](https://github.com/gobuild/awesome-go-tools), the [Go CodeTools wiki](https://go.dev/wiki/CodeTools), and the [`golang.org/x/tools/cmd`](https://pkg.go.dev/golang.org/x/tools/cmd) package index.
 
 To disable tools in completion: `golang-tool-completion completion --disable-tools`.
 To add own tools: `golang-tool-completion completion --add-tool <package> [--description <description>]`.
