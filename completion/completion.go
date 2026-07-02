@@ -23,6 +23,10 @@ var (
 	ArgumentCompletors []Completor
 )
 
+const (
+	catTrending = "Trending"
+)
+
 func generateCompletionScript(shell, command, handler string) (scriptPath string, script string, err error) {
 	switch shell {
 	case "bash":
@@ -322,8 +326,8 @@ func Completion() *cli.Command {
 	var command string
 	var shell string
 	var completeArgs []string
-	var disableTrendingModules bool
 	var addTrendingModules []string
+	var addTools []string
 	var descriptions []string
 	return &cli.Command{
 		Name:      "completion",
@@ -352,24 +356,49 @@ func Completion() *cli.Command {
 				Usage:       "Command name to complete",
 			},
 			&cli.BoolFlag{
-				Name:        "disable-trending",
-				Usage:       "Clear list of trending modules used for completion",
-				Category:    "Trending",
-				Destination: &disableTrendingModules,
+				Name:     "disable-trending",
+				Usage:    "Clear list of trending modules used for completion",
+				Category: "Trending",
+				Action: func(ctx context.Context, c *cli.Command, b bool) error {
+					if err := gomodules.DisableTrending(); err != nil {
+						return err
+					}
+					return cli.Exit("", 0)
+				},
 			},
 			&cli.StringFlag{
 				Name:     "add-trending",
 				Usage:    "Add modules with descriptions into list of trending modules",
-				Category: "Trending",
+				Category: catTrending,
 				Action: func(ctx context.Context, c *cli.Command, arg string) error {
 					addTrendingModules = append(addTrendingModules, arg)
 					return nil
 				},
 			},
+			&cli.BoolFlag{
+				Name:     "disable-tools",
+				Usage:    "Clear list of known tools used for completion",
+				Category: catTrending,
+				Action: func(ctx context.Context, c *cli.Command, b bool) error {
+					if err := gomodules.DisableTools(); err != nil {
+						return err
+					}
+					return cli.Exit("", 0)
+				},
+			},
+			&cli.StringFlag{
+				Name:     "add-tool",
+				Usage:    "Add main packages with descriptions into list of tools",
+				Category: catTrending,
+				Action: func(ctx context.Context, c *cli.Command, arg string) error {
+					addTools = append(addTools, arg)
+					return nil
+				},
+			},
 			&cli.StringFlag{
 				Name:     "description",
-				Usage:    "Set description for added trending modules",
-				Category: "Trending",
+				Usage:    "Set description for added trending modules or tools",
+				Category: catTrending,
 				Action: func(ctx context.Context, c *cli.Command, arg string) error {
 					descriptions = append(descriptions, arg)
 					return nil
@@ -389,11 +418,11 @@ func Completion() *cli.Command {
 					err = cli.Exit("", 0) // Do not call go tool.
 				}
 			}()
-			if disableTrendingModules {
-				return gomodules.DisableTrending()
-			}
 			if len(addTrendingModules) > 0 {
 				return gomodules.AddTrending(addTrendingModules, descriptions)
+			}
+			if len(addTools) > 0 {
+				return gomodules.AddTools(addTools, descriptions)
 			}
 			if shell == "" {
 				shell = filepath.Base(os.Getenv("SHELL"))
@@ -403,6 +432,7 @@ func Completion() *cli.Command {
 			}
 			if debug {
 				gomodules.Log = func(format string, args ...any) {
+					//nolint:errcheck // err
 					fmt.Fprintf(c.ErrWriter, format+"\n", args...)
 				}
 			}

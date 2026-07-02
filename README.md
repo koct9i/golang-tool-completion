@@ -87,13 +87,20 @@ shell <Enter>
 Argument completion for `get`, `install`, `run`, and similar commands fetches package names from:
 
 * **Cached modules** — directories named `<module>@<version>/` under `GOMODCACHE`
-* **Trending** — frequently used open-source modules
+* **Trending** — frequently used open-source modules for `go get`
+* **Tools** — frequently used programs for `go get -tool`, `go install` and `go run`
 
 List of trending modules is read from `~/.config/golang-tool-completion/trending.txt`,
 fallback is [embedded](gomodules/trending.txt) list of 1000 trending go modules from [goproxy.cn](https://goproxy.cn/stats).
 
 To disable trending modules in completion: `golang-tool-completion completion --disable-trending`.
 To add own modules: `golang-tool-completion completion --add-trending <module> [--description <description>]`.
+
+List of main package for tool programs is read from `~/.config/golang-tool-completion/tools.txt`,
+fallback is [embedded](gomodules/tools.txt) list picked from [awesome-go](https://github.com/avelino/awesome-go).
+
+To disable tools in completion: `golang-tool-completion completion --disable-tools`.
+To add own tools: `golang-tool-completion completion --add-tool <package> [--description <description>]`.
 
 ## Links
 
