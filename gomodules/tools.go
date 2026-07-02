@@ -6,12 +6,12 @@ import (
 	"os"
 )
 
-// https://github.com/avelino/awesome-go#go-tools
-// https://github.com/avelino/awesome-go#devops-tools
-// https://github.com/avelino/awesome-go#database-tools
-// https://github.com/avelino/awesome-go#continuous-integration
-// https://github.com/avelino/awesome-go#utilities
-// https://github.com/gobuild/awesome-go-tools
+// Curated lists of well-known tools:
+// https://github.com/avelino/awesome-go
+// https://go.dev/wiki/CodeTools
+// https://pkg.go.dev/golang.org/x/tools
+// https://pkg.go.dev/golang.org/x/vuln
+// https://pkg.go.dev/golang.org/x/perf
 
 //go:embed tools.txt
 var tools string

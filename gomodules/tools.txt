@@ -1,59 +1,94 @@
-entgo.io/ent/cmd/ent	entity framework code generator
-github.com/99designs/gqlgen	GraphQL server generator
-github.com/air-verse/air	live reload for Go apps
-github.com/bufbuild/buf/cmd/buf	Protocol Buffers toolchain
-github.com/cespare/reflex	watch files and rerun commands
-github.com/charmbracelet/glow/v2	terminal markdown renderer
-github.com/charmbracelet/gum	glamorous shell scripts
-github.com/cortesi/modd/cmd/modd	developer daemon and file watcher
-github.com/cucumber/godog/cmd/godog	BDD test runner
-github.com/cweill/gotests/gotests	generate Go tests
-github.com/elastic/crd-ref-docs	CRD Reference Documentation Generator
-github.com/evilmartians/lefthook/v2	Git hooks manager
-github.com/go-delve/delve/cmd/dlv	Delve debugger
-github.com/golangci/golangci-lint/v2/cmd/golangci-lint	Go linter collection
-github.com/google/addlicense	add license headers
-github.com/google/go-licenses	analyze Go package licenses
-github.com/goreleaser/goreleaser/v2	release automation for Go projects
-github.com/go-swagger/go-swagger/cmd/swagger	Go Swagger OpenAPI 2.0 tool
+entgo.io/ent/cmd/ent	entity framework code generator https://entgo.io
+github.com/99designs/gqlgen	GraphQL server generator https://gqlgen.com
+github.com/air-verse/air	live reload for Go apps https://github.com/air-verse/air
+github.com/bufbuild/buf/cmd/buf	Protocol Buffers toolchain https://buf.build
+github.com/caarlos0/svu/v3	semantic version utility https://github.com/caarlos0/svu
+github.com/cespare/reflex	watch files and rerun commands https://github.com/cespare/reflex
+github.com/charmbracelet/glow/v2	terminal markdown renderer https://github.com/charmbracelet/glow
+github.com/charmbracelet/gum	glamorous shell scripts https://github.com/charmbracelet/gum
+github.com/charmbracelet/vhs	terminal GIF recorder https://github.com/charmbracelet/vhs
+github.com/client9/misspell/cmd/misspell	spell checker for source code https://github.com/client9/misspell
+github.com/cortesi/modd/cmd/modd	developer daemon and file watcher https://github.com/cortesi/modd
+github.com/cosmtrek/air	live reload for Go apps https://github.com/air-verse/air
+github.com/cucumber/godog/cmd/godog	BDD test runner https://go-dog.github.io/godog
+github.com/cweill/gotests/gotests	generate Go tests https://github.com/cweill/gotests
+github.com/deepmap/oapi-codegen/cmd/oapi-codegen	OpenAPI Go code generator https://github.com/oapi-codegen/oapi-codegen
+github.com/elastic/crd-ref-docs	CRD Reference Documentation Generator https://github.com/elastic/crd-ref-docs
+github.com/evilmartians/lefthook/v2	Git hooks manager https://lefthook.dev
+github.com/fatih/gomodifytags	update struct field tags https://github.com/fatih/gomodifytags
+github.com/fatih/motion	semantic code search for Go https://github.com/fatih/motion
+github.com/fzipp/gocyclo/cmd/gocyclo	cyclomatic complexity analyzer https://github.com/fzipp/gocyclo
+github.com/go-critic/go-critic/cmd/gocritic	Go source code linter https://go-critic.com
+github.com/go-delve/delve/cmd/dlv	Delve debugger https://github.com/go-delve/delve
+github.com/go-enry/go-license-detector/v4/cmd/license-detector	license detector https://github.com/go-enry/go-license-detector
+github.com/go-jet/jet/v2/cmd/jet	SQL code generator https://github.com/go-jet/jet
+github.com/golangci/golangci-lint/v2/cmd/golangci-lint	Go linter collection https://golangci-lint.run
+github.com/golang-migrate/migrate/v4/cmd/migrate	database migration CLI https://github.com/golang-migrate/migrate
+github.com/golang/mock/mockgen	generate Go mocks https://github.com/golang/mock
+github.com/google/addlicense	add license headers https://github.com/google/addlicense
+github.com/google/go-containerregistry/cmd/crane	container registry CLI https://github.com/google/go-containerregistry
+github.com/google/go-licenses	analyze Go package licenses https://github.com/google/go-licenses
+github.com/google/osv-scanner/cmd/osv-scanner	vulnerability scanner https://google.github.io/osv-scanner
+github.com/goreleaser/goreleaser/v2	release automation for Go projects https://goreleaser.com
+github.com/go-swagger/go-swagger/cmd/swagger	Go Swagger OpenAPI 2.0 tool https://goswagger.io
 github.com/go-task/task/v3/cmd/task	task runner https://taskfile.dev
-github.com/grpc-ecosystem/grpc-gateway/v2/protoc-gen-grpc-gateway	gRPC-Gateway generator
-github.com/grpc-ecosystem/grpc-gateway/v2/protoc-gen-openapiv2	OpenAPI generator for gRPC-Gateway
-github.com/grpc-ecosystem/grpc-gateway/v2/protoc-gen-openapiv3	OpenAPI generator for gRPC-Gateway
-github.com/jstemmer/go-junit-report/v2	convert go test output to JUnit XML
-github.com/kubernetes/code-generator/cmd/client-gen	Kubernetes client generator
-github.com/mikefarah/yq/v4	YAML, JSON, INI and XML processor
-github.com/nametake/golangci-lint-langserver	golangci-lint language server
-github.com/oapi-codegen/oapi-codegen/v2/cmd/oapi-codegen	OpenAPI Go code generator
-github.com/onsi/ginkgo/v2/ginkgo	Ginkgo Go test runner
-github.com/pressly/goose/v3/cmd/goose	database migration tool
-github.com/projectdiscovery/httpx/cmd/httpx	HTTP toolkit
-github.com/projectdiscovery/nuclei/v3/cmd/nuclei	vulnerability scanner
-github.com/projectdiscovery/subfinder/v2/cmd/subfinder	subdomain discovery tool
-github.com/rakyll/gotest	go test with colors
-github.com/reviewdog/reviewdog	automated code review comments
-github.com/securego/gosec/v2/cmd/gosec	Go security checker
-github.com/sqlc-dev/sqlc/cmd/sqlc	generate Go from SQL
-github.com/swaggo/swag/cmd/swag	generate Swagger docs
-github.com/swaggo/swag/v2/cmd/swag	generate Swagger docs
-github.com/tomnomnom/assetfinder	find related domains
-github.com/tomnomnom/gron	make JSON greppable
-github.com/tomnomnom/httprobe	probe HTTP and HTTPS servers
-github.com/vadimi/grpc-client-cli/cmd/grpc-client-cli	gRPC client CLI
-github.com/vektra/mockery/v3	generate mocks for interfaces
-golang.org/x/tools/cmd/godoc	serve Go documentation
-golang.org/x/tools/cmd/goimports	update imports in Go source files
-golang.org/x/tools/cmd/stringer	generate String methods for integer types
+github.com/grpc-ecosystem/grpc-gateway/v2/protoc-gen-grpc-gateway	gRPC-Gateway generator https://grpc-ecosystem.github.io/grpc-gateway
+github.com/grpc-ecosystem/grpc-gateway/v2/protoc-gen-openapiv2	OpenAPI generator for gRPC-Gateway https://grpc-ecosystem.github.io/grpc-gateway
+github.com/grpc-ecosystem/grpc-gateway/v2/protoc-gen-openapiv3	OpenAPI generator for gRPC-Gateway https://grpc-ecosystem.github.io/grpc-gateway
+github.com/incu6us/goimports-reviser/v3	Go imports formatter https://github.com/incu6us/goimports-reviser
+github.com/josharian/impl	generate method stubs https://github.com/josharian/impl
+github.com/jstemmer/go-junit-report/v2	convert go test output to JUnit XML https://github.com/jstemmer/go-junit-report
+github.com/kisielk/errcheck	error return checker https://github.com/kisielk/errcheck
+github.com/klauspost/asmfmt/cmd/asmfmt	Go assembler formatter https://github.com/klauspost/asmfmt
+github.com/kubernetes/code-generator/cmd/client-gen	Kubernetes client generator https://github.com/kubernetes/code-generator
+github.com/mailru/easyjson/easyjson	fast JSON code generator https://github.com/mailru/easyjson
+github.com/mgechev/revive	extensible Go linter https://revive.run
+github.com/mikefarah/yq/v4	YAML, JSON, INI and XML processor https://mikefarah.gitbook.io/yq
+github.com/nametake/golangci-lint-langserver	golangci-lint language server https://github.com/nametake/golangci-lint-langserver
+github.com/ncruces/zenity/cmd/zenity	cross-platform UI dialogs https://github.com/ncruces/zenity
+github.com/oapi-codegen/oapi-codegen/v2/cmd/oapi-codegen	OpenAPI Go code generator https://github.com/oapi-codegen/oapi-codegen
+github.com/onsi/ginkgo/v2/ginkgo	Ginkgo Go test runner https://onsi.github.io/ginkgo
+github.com/opencontainers/umoci/cmd/umoci	OCI container image CLI https://umo.ci
+github.com/pressly/goose/v3/cmd/goose	database migration tool https://pressly.github.io/goose
+github.com/projectdiscovery/httpx/cmd/httpx	HTTP toolkit https://github.com/projectdiscovery/httpx
+github.com/projectdiscovery/nuclei/v3/cmd/nuclei	vulnerability scanner https://nuclei.projectdiscovery.io
+github.com/projectdiscovery/subfinder/v2/cmd/subfinder	subdomain discovery tool https://github.com/projectdiscovery/subfinder
+github.com/rakyll/gotest	go test with colors https://github.com/rakyll/gotest
+github.com/reviewdog/reviewdog	automated code review comments https://reviewdog.github.io/reviewdog
+github.com/rubenv/sql-migrate/sql-migrate	database migration tool https://github.com/rubenv/sql-migrate
+github.com/securego/gosec/v2/cmd/gosec	Go security checker https://github.com/securego/gosec
+github.com/segmentio/golines	long-line formatter https://github.com/segmentio/golines
+github.com/sqlc-dev/sqlc/cmd/sqlc	generate Go from SQL https://sqlc.dev
+github.com/swaggo/swag/cmd/swag	generate Swagger docs https://github.com/swaggo/swag
+github.com/swaggo/swag/v2/cmd/swag	generate Swagger docs https://github.com/swaggo/swag
+github.com/tomnomnom/assetfinder	find related domains https://github.com/tomnomnom/assetfinder
+github.com/tomnomnom/gron	make JSON greppable https://github.com/tomnomnom/gron
+github.com/tomnomnom/httprobe	probe HTTP and HTTPS servers https://github.com/tomnomnom/httprobe
+github.com/vadimi/grpc-client-cli/cmd/grpc-client-cli	gRPC client CLI https://github.com/vadimi/grpc-client-cli
+github.com/vektra/mockery/v3	generate mocks for interfaces https://vektra.github.io/mockery
+golang.org/x/perf/cmd/benchstat	benchmark comparison tool https://pkg.go.dev/golang.org/x/perf/cmd/benchstat
+golang.org/x/pkgsite/cmd/pkgsite	serve Go package documentation https://pkg.go.dev/golang.org/x/pkgsite/cmd/pkgsite
+golang.org/x/tools/cmd/bundle	bundle packages into a single source file https://pkg.go.dev/golang.org/x/tools/cmd/bundle
+golang.org/x/tools/cmd/callgraph	call graph tool https://pkg.go.dev/golang.org/x/tools/cmd/callgraph
+golang.org/x/tools/cmd/deadcode	dead code detector https://pkg.go.dev/golang.org/x/tools/cmd/deadcode
+golang.org/x/tools/cmd/digraph	directed graph utility https://pkg.go.dev/golang.org/x/tools/cmd/digraph
+golang.org/x/tools/cmd/godoc	serve Go documentation https://pkg.go.dev/golang.org/x/tools/cmd/godoc
+golang.org/x/tools/cmd/goimports	update imports in Go source files https://pkg.go.dev/golang.org/x/tools/cmd/goimports
+golang.org/x/tools/cmd/gorename	precise Go identifier renaming https://pkg.go.dev/golang.org/x/tools/cmd/gorename
+golang.org/x/tools/cmd/gotype	Go source type checker https://pkg.go.dev/golang.org/x/tools/cmd/gotype
+golang.org/x/tools/cmd/stringer	generate String methods for integer types https://pkg.go.dev/golang.org/x/tools/cmd/stringer
 golang.org/x/tools/gopls	Go language server https://go.dev/gopls
-google.golang.org/grpc/cmd/protoc-gen-go-grpc	Go gRPC code generator
-google.golang.org/protobuf/cmd/protoc-gen-go	Go protobuf code generator
-go.uber.org/mock/mockgen	generate Go mocks
-honnef.co/go/tools/cmd/staticcheck	static analysis for Go programs
-mvdan.cc/gofumpt	stricter gofmt
-mvdan.cc/sh/v3/cmd/shfmt	shell formatter
-oras.land/oras/cmd/oras	OCI registry client https://oras.land
-sigs.k8s.io/controller-runtime/tools/setup-envtest	Kubernetes controller testenv tool
-sigs.k8s.io/controller-tools/cmd/controller-gen	Kubernetes controller code generator
-sigs.k8s.io/cri-tools/cmd/crictl	CLI for Container Runtime Interface
-sigs.k8s.io/kind	Kubernetes IN Docker
-sigs.k8s.io/kustomize/kustomize/v5	Kubernetes customization for YAML configurations
+golang.org/x/vuln/cmd/govulncheck	Go vulnerability checker https://go.dev/security/vuln
+google.golang.org/grpc/cmd/protoc-gen-go-grpc	Go gRPC code generator https://grpc.io/docs/languages/go/generated-code
+google.golang.org/protobuf/cmd/protoc-gen-go	Go protobuf code generator https://protobuf.dev/reference/go/go-generated
+go.podman.io/skopeo/cmd/skopeo	container registry CLI https://github.com/podman-container-tools/skopeo
+go.uber.org/mock/mockgen	generate Go mocks https://github.com/uber-go/mock
+honnef.co/go/tools/cmd/staticcheck	static analysis for Go programs https://staticcheck.dev
+mvdan.cc/gofumpt	stricter gofmt https://github.com/mvdan/gofumpt
+mvdan.cc/sh/v3/cmd/shfmt	shell formatter https://github.com/mvdan/sh
+oras.land/oras/cmd/oras	OCI registry artifacts CLI https://oras.land
+sigs.k8s.io/controller-runtime/tools/setup-envtest	Kubernetes controller testenv tool https://book.kubebuilder.io/reference/envtest
+sigs.k8s.io/controller-tools/cmd/controller-gen	Kubernetes controller code generator https://book.kubebuilder.io/reference/controller-gen
+sigs.k8s.io/cri-tools/cmd/crictl	CLI for Container Runtime Interface https://github.com/kubernetes-sigs/cri-tools
+sigs.k8s.io/kind	Kubernetes IN Docker https://kind.sigs.k8s.io
+sigs.k8s.io/kustomize/kustomize/v5	Kubernetes customization for YAML configurations https://kustomize.io
