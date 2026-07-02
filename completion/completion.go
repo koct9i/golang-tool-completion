@@ -92,6 +92,9 @@ func doCompletionScript(writer io.Writer, shell, command, handler string, instal
 		if _, err := fmt.Fprintf(writer, "Installing completion script: %v\n", scriptPath); err != nil {
 			return err
 		}
+		if err := os.MkdirAll(filepath.Dir(scriptPath), 0o755); err != nil {
+			return fmt.Errorf("failed to create completion script directory: %w", err)
+		}
 		//nolint:gosec //0o644
 		if err := os.WriteFile(scriptPath, []byte(script), 0o644); err != nil {
 			return fmt.Errorf("failed to install completion script: %w", err)
@@ -155,6 +158,13 @@ func (a *Argument) Complete(ctx context.Context, result map[string]string, prefi
 
 //nolint:cyclop //complex
 func doCompletion(ctx context.Context, c *cli.Command, shell string, completeArgs []string) error {
+	LastCommand = nil
+	ParsedArguments = nil
+	ArgumentCompletors = nil
+	defer func() {
+		WithinCompletion = false
+	}()
+
 	lastCmd := c.Root()
 	var lastArg string
 	var wordPrefix string
@@ -189,7 +199,6 @@ func doCompletion(ctx context.Context, c *cli.Command, shell string, completeArg
 		WithinCompletion = true
 		//nolint:contextcheck //ctx
 		err := lastCmd.Run(context.Background(), args)
-		WithinCompletion = false
 
 		if err == nil && LastCommand != nil {
 			lastCmd = LastCommand
