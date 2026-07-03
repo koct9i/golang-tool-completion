@@ -1,9 +1,15 @@
 package gomodules
 
 import (
+	"context"
 	_ "embed"
 	"fmt"
 	"os"
+	"path"
+	"path/filepath"
+	"strings"
+
+	"golang.org/x/mod/module"
 )
 
 // Curated lists of well-known tools:
@@ -65,4 +71,53 @@ func AddTools(packages, descriptions []string) error {
 func CompleteToolPackages(results map[string]string, prefix string) {
 	readTools()
 	completeKnownPackages(results, prefix, tools, "tool", false)
+}
+
+func CompleteTools(ctx context.Context, result map[string]string, prefix string) {
+	output, err := runGo(ctx, "tool")
+	if err != nil {
+		return
+	}
+	for line := range strings.Lines(string(output)) {
+		tool := strings.TrimSpace(line)
+		if strings.HasPrefix(tool, prefix) {
+			//TODO: Add description for builtin tools.
+			result[tool] = ""
+		}
+		if p, _, ok := module.SplitPathVersion(tool); ok {
+			name := path.Base(p)
+			if strings.HasPrefix(name, prefix) {
+				if _, found := result[name]; !found {
+					result[name] = tool
+				}
+			}
+		}
+	}
+}
+
+func completeLocalMainPackages(ctx context.Context, result map[string]string, prefix string) {
+	modOutput, err := runGo(ctx, "list", "-m")
+	if err != nil {
+		return
+	}
+	modulePath := strings.TrimSpace(string(modOutput))
+	output, err := runGo(ctx, "list", "-f", `{{if eq .Name "main"}}{{.ImportPath}}{{end}}`, "./...")
+	if err != nil {
+		return
+	}
+	for line := range strings.Lines(string(output)) {
+		pkg := strings.TrimSpace(line)
+		if pkg == "" {
+			continue
+		}
+		suggest := "."
+		if suffix, found := strings.CutPrefix(pkg, modulePath); found {
+			suggest += suffix
+		} else {
+			suggest = pkg
+		}
+		if strings.HasPrefix(suggest, prefix) {
+			result[suggest] = filepath.Base(suggest)
+		}
+	}
 }
