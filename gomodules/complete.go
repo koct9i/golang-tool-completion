@@ -167,7 +167,7 @@ func runGo(ctx context.Context, command string, args ...string) ([]byte, error) 
 	if ChangeDirectory != "" {
 		cmd.Args = append(cmd.Args, "-C", expandPath(ChangeDirectory))
 	}
-	if command == "tool" && ModFile != "" {
+	if ModFile != "" {
 		cmd.Args = append(cmd.Args, "-modfile", expandPath(ModFile))
 	}
 	cmd.Args = append(cmd.Args, args...)
