@@ -36,11 +36,20 @@ func CompletePackages(ctx context.Context, result map[string]string, prefix stri
 
 func CompleteMainPackages(ctx context.Context, result map[string]string, prefix string) {
 	if strings.HasPrefix(prefix, ".") {
+		completeLocalMainPackages(ctx, result, prefix)
+		fixupLoneResult(result)
 		return
 	}
 	CompleteToolPackages(result, prefix)
 	NewModCache().CompleteMainPackages(ctx, result, prefix)
 	fixupLoneResult(result)
+}
+
+func CompletePresentModules(ctx context.Context, result map[string]string, prefix string) {
+	if !strings.HasPrefix(prefix, ".") {
+		completePresentModules(ctx, result, prefix)
+		fixupLoneResult(result)
+	}
 }
 
 func CompleteDependencies(ctx context.Context, result map[string]string, prefix string) {
@@ -95,6 +104,63 @@ func completeDependencies(ctx context.Context, result map[string]string, prefix 
 	for line := range strings.Lines(string(output)) {
 		if strings.HasPrefix(line, prefix) {
 			result[strings.TrimSpace(line)] = "deps"
+		}
+	}
+}
+
+func completePresentModules(ctx context.Context, result map[string]string, prefix string) {
+	pkgPrefix, versionPrefix, hasVersion := strings.Cut(prefix, "@")
+	output, err := runGo(ctx, "list", "-m", "all")
+	if err != nil {
+		return
+	}
+	first := true
+	for line := range strings.Lines(string(output)) {
+		fields := strings.Fields(line)
+		if len(fields) == 0 {
+			continue
+		}
+		if first {
+			first = false
+			continue
+		}
+		modulePath := fields[0]
+		if !strings.HasPrefix(modulePath, pkgPrefix) {
+			continue
+		}
+		if hasVersion {
+			if len(fields) > 1 && strings.HasPrefix(fields[1], versionPrefix) {
+				result[modulePath+"@"+fields[1]] = "module"
+			}
+			continue
+		}
+		result[modulePath] = "module"
+	}
+}
+
+func completeLocalMainPackages(ctx context.Context, result map[string]string, prefix string) {
+	output, err := runGo(ctx, "list", "-f", `{{if eq .Name "main"}}{{.ImportPath}}{{end}}`, "./...")
+	if err != nil {
+		return
+	}
+	modOutput, err := runGo(ctx, "list", "-m")
+	if err != nil {
+		return
+	}
+	modulePath := strings.TrimSpace(string(modOutput))
+	for line := range strings.Lines(string(output)) {
+		pkg := strings.TrimSpace(line)
+		if pkg == "" {
+			continue
+		}
+		suggest := "."
+		if suffix, found := strings.CutPrefix(pkg, modulePath); found {
+			suggest += suffix
+		} else {
+			suggest = pkg
+		}
+		if strings.HasPrefix(suggest, prefix) {
+			result[suggest] = "local main"
 		}
 	}
 }
