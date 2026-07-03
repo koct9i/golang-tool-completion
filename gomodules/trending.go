@@ -106,7 +106,7 @@ func completeKnownPackages(results map[string]string, prefix, packages, defaultD
 				results[prefix+tail] = desc
 			}
 		}
-		if len(prefix) >= 3 && strings.Contains(line, prefix) {
+		if len(prefix) >= MinSubstringLen && strings.Contains(line, prefix) {
 			pkg, _ := strings.CutSuffix(line, "\n")
 			pkg, desc, found := strings.Cut(pkg, "\t")
 			if !found {

@@ -6,7 +6,6 @@ import (
 	"io/fs"
 	"iter"
 	"os"
-	"os/exec"
 	"path"
 	"path/filepath"
 	"strings"
@@ -152,11 +151,12 @@ func (m ModCache) CompleteMainPackages(ctx context.Context, result map[string]st
 	if bestDir == "" || m.dir == "" {
 		return
 	}
-	cmd := exec.CommandContext(ctx, "go", "list", "-f", `{{if eq .Name "main"}}{{.ImportPath}}{{end}}`, "./...")
-	cmd.Dir = filepath.Join(m.dir, bestDir)
-	output, err := cmd.Output()
+	currentDirectory := ChangeDirectory
+	ChangeDirectory = filepath.Join(m.dir, bestDir)
+	output, err := runGo(ctx, "list", "-f", `{{if eq .Name "main"}}{{.ImportPath}}{{end}}`, "./...")
+	ChangeDirectory = currentDirectory
 	if err != nil {
-		m.log("go list main packages in %q error %v", cmd.Dir, err)
+		m.log("go list main packages in %q error %v", bestDir, err)
 		return
 	}
 	for line := range strings.Lines(string(output)) {
@@ -220,6 +220,30 @@ func (m ModCache) completeModule(result map[string]string, pkg, modpath string) 
 	}
 }
 
+func (m ModCache) CompleteUsedModules(ctx context.Context, result map[string]string, prefix string) {
+	pkg, version, hasVersion := strings.Cut(prefix, "@")
+	output, err := runGo(ctx, "list", "-m", "all")
+	if err != nil {
+		return
+	}
+	for line := range strings.Lines(string(output)) {
+		mod, ver, hasVer := strings.Cut(strings.TrimSpace(line), " ")
+		if hasVersion {
+			if mod != pkg {
+				continue
+			}
+			if escaped, err := escapePath(mod); err == nil {
+				m.completeVersion(result, mod, version, escaped, "")
+			}
+			if strings.HasPrefix(ver, version) {
+				result[pkg+"@"+ver] = "used"
+			}
+		} else if hasVer && isMatchingPackage(mod, pkg) {
+			result[mod+"@"] = "used"
+		}
+	}
+}
+
 func (m ModCache) completeModulePackage(result map[string]string, pkg, modpath, relpath string) {
 	moddir, modname := filepath.Split(modpath)
 	entries, err := m.fs.ReadDir(filepath.Clean(moddir))
@@ -277,6 +301,10 @@ func (m ModCache) completeVersion(result map[string]string, pkg, versionPrefix, 
 			}
 		}
 	}
+}
+
+func isMatchingPackage(pkg, input string) bool {
+	return strings.HasPrefix(pkg, input) || len(input) >= MinSubstringLen && strings.Contains(pkg, input)
 }
 
 func (m ModCache) getPackageStatus(modpath, relpath, version string) (string, bool) {

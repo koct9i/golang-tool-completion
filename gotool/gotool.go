@@ -346,6 +346,7 @@ func (f *getUpdateFlag) Complete(ctx context.Context, result map[string]string, 
 
 func Get() *cli.Command {
 	var tool bool
+	var update string
 	return &cli.Command{
 		Name:  "get",
 		Usage: "add dependencies to current module and install them",
@@ -354,7 +355,7 @@ func Get() *cli.Command {
 		},
 		Flags: append([]cli.Flag{
 			&cli.BoolFlag{Name: "t", Usage: "Also download test dependencies.", Category: catModule},
-			&getUpdateFlag{StringFlag: cli.StringFlag{Name: "u", Usage: "Update modules providing dependencies.", Category: catModule}},
+			&getUpdateFlag{StringFlag: cli.StringFlag{Name: "u", Usage: "Update modules providing dependencies.", Category: catModule, Destination: &update}},
 			&cli.BoolFlag{Name: "tool", Usage: "Add packages as tool dependencies (tool directive).", Category: catModule, Destination: &tool},
 		}, buildFlags()...),
 		ArgsUsage: "[package@[version|latest|patch|none]]...",
@@ -366,6 +367,8 @@ func Get() *cli.Command {
 				OnComplete: func(ctx context.Context, m map[string]string, s string) {
 					if tool {
 						gomodules.CompleteMainPackages(ctx, m, s)
+					} else if update != "" {
+						gomodules.CompleteUsedModules(ctx, m, s)
 					} else {
 						gomodules.CompletePackages(ctx, m, s)
 					}

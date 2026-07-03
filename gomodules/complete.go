@@ -5,9 +5,14 @@ import (
 	"os"
 	"os/exec"
 	"path"
+	"path/filepath"
 	"strings"
 
 	"golang.org/x/mod/module"
+)
+
+const (
+	MinSubstringLen = 3
 )
 
 var (
@@ -36,11 +41,19 @@ func CompletePackages(ctx context.Context, result map[string]string, prefix stri
 
 func CompleteMainPackages(ctx context.Context, result map[string]string, prefix string) {
 	if strings.HasPrefix(prefix, ".") {
-		return
+		completeLocalMainPackages(ctx, result, prefix)
+	} else {
+		CompleteToolPackages(result, prefix)
+		NewModCache().CompleteMainPackages(ctx, result, prefix)
 	}
-	CompleteToolPackages(result, prefix)
-	NewModCache().CompleteMainPackages(ctx, result, prefix)
 	fixupLoneResult(result)
+}
+
+func CompleteUsedModules(ctx context.Context, result map[string]string, prefix string) {
+	if !strings.HasPrefix(prefix, ".") {
+		NewModCache().CompleteUsedModules(ctx, result, prefix)
+		fixupLoneResult(result)
+	}
 }
 
 func CompleteDependencies(ctx context.Context, result map[string]string, prefix string) {
@@ -95,6 +108,33 @@ func completeDependencies(ctx context.Context, result map[string]string, prefix 
 	for line := range strings.Lines(string(output)) {
 		if strings.HasPrefix(line, prefix) {
 			result[strings.TrimSpace(line)] = "deps"
+		}
+	}
+}
+
+func completeLocalMainPackages(ctx context.Context, result map[string]string, prefix string) {
+	modOutput, err := runGo(ctx, "list", "-m")
+	if err != nil {
+		return
+	}
+	modulePath := strings.TrimSpace(string(modOutput))
+	output, err := runGo(ctx, "list", "-f", `{{if eq .Name "main"}}{{.ImportPath}}{{end}}`, "./...")
+	if err != nil {
+		return
+	}
+	for line := range strings.Lines(string(output)) {
+		pkg := strings.TrimSpace(line)
+		if pkg == "" {
+			continue
+		}
+		suggest := "."
+		if suffix, found := strings.CutPrefix(pkg, modulePath); found {
+			suggest += suffix
+		} else {
+			suggest = pkg
+		}
+		if strings.HasPrefix(suggest, prefix) {
+			result[suggest] = filepath.Base(suggest)
 		}
 	}
 }
