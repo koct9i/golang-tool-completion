@@ -82,7 +82,7 @@ func TestToolPackages(t *testing.T) {
 	} {
 		t.Run(tt.prefix, func(t *testing.T) {
 			result := map[string]string{}
-			CompleteToolPackages(result, tt.prefix)
+			CompleteToolPackages(t.Context(), result, tt.prefix)
 			got := slices.Sorted(maps.Keys(result))
 			if !slices.Equal(got, tt.want) {
 				t.Fatalf("CompleteToolPackages(%q) = %v, want %v", tt.prefix, got, tt.want)
@@ -119,7 +119,7 @@ func TestAddTools(t *testing.T) {
 
 	tools = ""
 	result := map[string]string{}
-	CompleteToolPackages(result, "example.com/tool/c")
+	CompleteToolPackages(t.Context(), result, "example.com/tool/c")
 	if result["example.com/tool/cmd/tool@"] != "Example tool" {
 		t.Fatalf("CompleteToolPackages() = %#v, want added tool", result)
 	}

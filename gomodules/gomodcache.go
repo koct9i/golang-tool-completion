@@ -142,9 +142,10 @@ func (m ModCache) CompleteMainPackages(ctx context.Context, result map[string]st
 		}
 	}
 	if hasVersion {
-		//nolint:gocritic //latest
-		if strings.HasPrefix("latest", versionPrefix) {
-			result[pkgPrefix+"@latest"] = "latest"
+		for _, v := range []string{"latest", "patch"} {
+			if strings.HasPrefix(v, versionPrefix) {
+				result[pkgPrefix+"@"+v] = v
+			}
 		}
 		return
 	}

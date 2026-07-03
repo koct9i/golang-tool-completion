@@ -68,17 +68,26 @@ func AddTools(packages, descriptions []string) error {
 	return os.WriteFile(userToolsPath, []byte(tools), 0o644)
 }
 
-func CompleteToolPackages(results map[string]string, prefix string) {
+func CompleteToolPackages(ctx context.Context, result map[string]string, prefix string) {
 	readTools()
-	completeKnownPackages(results, prefix, tools, "tool", false)
+	completeKnownPackages(result, prefix, tools, "tool", false)
+	completeUsedTools(ctx, result, prefix)
 }
 
 func CompleteTools(ctx context.Context, result map[string]string, prefix string) {
-	output, err := runGo(ctx, "tool")
-	if err != nil {
-		return
+	if output, err := runGo(ctx, "tool"); err == nil {
+		completeToolPackages(result, prefix, string(output))
 	}
-	for line := range strings.Lines(string(output)) {
+}
+
+func completeUsedTools(ctx context.Context, result map[string]string, prefix string) {
+	if output, err := runGo(ctx, "list", "tool"); err == nil {
+		completeKnownPackages(result, prefix, string(output), "tool", false)
+	}
+}
+
+func completeToolPackages(result map[string]string, prefix, packages string) {
+	for line := range strings.Lines(packages) {
 		tool := strings.TrimSpace(line)
 		if strings.HasPrefix(tool, prefix) {
 			//TODO: Add description for builtin tools.

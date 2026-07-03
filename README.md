@@ -18,8 +18,11 @@ go build -<TAB>      → completes command flags with a short description
 go get <TAB>         → completes package paths from cached and trending modules
 go get <substr><TAB> → completes module paths by substring >= 3 chars long
 go get <pkg>@<TAB>   → completes package version
+go get -u <TAB>      → completes modules for imported packages
+go get -tool <TAB>   → completes used and well-known tool packages
 go doc <pkg>.<TAB>   → completes package symbol
 go tool <TAB>        → completes tool command name
+go install <TAB>     → completes used and well-known tool packages
 ```
 
 For example `go i<TAB> gopls<TAB>@l<TAB>` for `go install golang.org/x/tools/gopls@latest`.

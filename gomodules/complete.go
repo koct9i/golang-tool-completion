@@ -40,7 +40,7 @@ func CompleteMainPackages(ctx context.Context, result map[string]string, prefix 
 	if strings.HasPrefix(prefix, ".") {
 		completeLocalMainPackages(ctx, result, prefix)
 	} else {
-		CompleteToolPackages(result, prefix)
+		CompleteToolPackages(ctx, result, prefix)
 		NewModCache().CompleteMainPackages(ctx, result, prefix)
 	}
 	fixupLoneResult(result)
