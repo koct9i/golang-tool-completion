@@ -161,25 +161,25 @@ func (a *Argument) Complete(ctx context.Context, result map[string]string, prefi
 func doCompletion(ctx context.Context, c *cli.Command, shell string, completeArgs []string) error {
 	lastCmd := c.Root()
 	var lastArg string
-	var wordPrefix string
+	var lastArgPrefix string
 
 	if len(completeArgs) > 0 {
 		args := append([]string{lastCmd.Name}, completeArgs...)
 
 		if shell == "bash" {
 			// Handle word break in "--flag=value".
-			for i := 0; i < len(args)-1; i++ { //nolint:intrange //no
+			for i := 0; i+1 < len(args); i++ {
 				if strings.HasPrefix(args[i], "-") && args[i+1] == "=" {
-					wordPrefix = args[i] + args[i+1]
-					if i < len(args)-2 {
-						args[i] = wordPrefix + args[i+2]
+					prefix := args[i] + args[i+1]
+					if i+2 < len(args) {
+						args[i] = prefix + args[i+2]
 						args = append(args[:i+1], args[i+3:]...)
 					} else {
-						args[i] = wordPrefix
-						args = args[:i+1]
+						args = append(args[:i], prefix)
 					}
-				} else {
-					wordPrefix = ""
+					if i == len(args)-1 {
+						lastArgPrefix = prefix
+					}
 				}
 			}
 		}
@@ -263,10 +263,10 @@ func doCompletion(ctx context.Context, c *cli.Command, shell string, completeArg
 		ArgumentCompletors[len(ArgumentCompletors)-1].Complete(ctx, result, ParsedArguments[len(ParsedArguments)-1])
 	}
 
-	if wordPrefix != "" {
+	if lastArgPrefix != "" {
 		wordResult := make(map[string]string, len(result))
 		for suggest, usage := range result {
-			if suffix, found := strings.CutPrefix(suggest, wordPrefix); found {
+			if suffix, found := strings.CutPrefix(suggest, lastArgPrefix); found {
 				wordResult[suffix] = usage
 			}
 		}
