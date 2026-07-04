@@ -106,22 +106,7 @@ func testModCache(t *testing.T, dir string) ModCache {
 }
 
 func TestCompleteProgramsFromNewestCachedModule(t *testing.T) {
-	root := t.TempDir()
-	writeFile := func(name, data string) {
-		t.Helper()
-		if err := os.MkdirAll(filepath.Dir(name), 0o755); err != nil {
-			t.Fatal(err)
-		}
-		if err := os.WriteFile(name, []byte(data), 0o644); err != nil {
-			t.Fatal(err)
-		}
-	}
-	writeFile(filepath.Join(root, "example.com", "prog@v1.0.0", "go.mod"), "module example.com/prog\n\ngo 1.23\n")
-	writeFile(filepath.Join(root, "example.com", "prog@v1.0.0", "cmd", "old", "main.go"), "package main\nfunc main() {}\n")
-	writeFile(filepath.Join(root, "example.com", "prog@v1.2.0", "go.mod"), "module example.com/prog\n\ngo 1.23\n")
-	writeFile(filepath.Join(root, "example.com", "prog@v1.2.0", "main.go"), "package main\nfunc main() {}\n")
-	writeFile(filepath.Join(root, "example.com", "prog@v1.2.0", "cmd", "new", "main.go"), "package main\nfunc main() {}\n")
-	writeFile(filepath.Join(root, "example.com", "prog@v1.2.0", "pkg", "pkg.go"), "package pkg\n")
+	root := absTestdataPath(t, "program-cache")
 
 	//nolint:errcheck //ok
 	cache := ModCache{fs: os.DirFS(root).(fs.ReadDirFS), dir: root, log: t.Logf}
@@ -139,7 +124,7 @@ func TestCompleteProgramsFromNewestCachedModule(t *testing.T) {
 }
 
 func TestCompletePresentModules(t *testing.T) {
-	root := writeTestModule(t)
+	root := absTestdataPath(t, "local-module")
 	withChangeDirectory(t, root)
 
 	result := map[string]string{}
@@ -156,7 +141,7 @@ func TestCompletePresentModules(t *testing.T) {
 }
 
 func TestCompleteLocalMainPackages(t *testing.T) {
-	root := writeTestModule(t)
+	root := absTestdataPath(t, "local-module")
 	withChangeDirectory(t, root)
 
 	result := map[string]string{}
@@ -172,32 +157,47 @@ func TestCompleteLocalMainPackages(t *testing.T) {
 	}
 }
 
-func writeTestModule(t *testing.T) string {
-	t.Helper()
-	root := t.TempDir()
-	writeFile(t, filepath.Join(root, "go.mod"), `module example.com/root
+func TestCompleteUsedModuleVersions(t *testing.T) {
+	root := absTestdataPath(t, "local-module")
+	withChangeDirectory(t, root)
 
-go 1.25
+	result := map[string]string{}
+	CompleteUsedModules(context.Background(), result, "example.com/dep@v")
 
-require example.com/dep v0.0.0
-
-replace example.com/dep => ./dep
-`)
-	writeFile(t, filepath.Join(root, "cmd", "tool", "main.go"), "package main\nfunc main() {}\n")
-	writeFile(t, filepath.Join(root, "pkg", "pkg.go"), "package pkg\n")
-	writeFile(t, filepath.Join(root, "dep", "go.mod"), "module example.com/dep\n\ngo 1.25\n")
-	writeFile(t, filepath.Join(root, "dep", "dep.go"), "package dep\n")
-	return root
+	got := slices.Sorted(maps.Keys(result))
+	want := []string{"example.com/dep@v0.0.0"}
+	if !slices.Equal(got, want) {
+		t.Fatalf("CompleteUsedModules() = %v, want %v", got, want)
+	}
+	if result["example.com/dep@v0.0.0"] != "used" {
+		t.Fatalf("CompleteUsedModules() statuses = %#v", result)
+	}
 }
 
-func writeFile(t *testing.T, name string, data string) {
+func TestCompleteDependenciesFromLocalModule(t *testing.T) {
+	root := absTestdataPath(t, "local-module")
+	withChangeDirectory(t, filepath.Join(root, "cmd", "tool"))
+
+	result := map[string]string{}
+	CompleteDependencies(context.Background(), result, "example.com/root/c")
+
+	got := slices.Sorted(maps.Keys(result))
+	want := []string{"example.com/root/cmd/tool"}
+	if !slices.Equal(got, want) {
+		t.Fatalf("CompleteDependencies() = %v, want %v", got, want)
+	}
+	if result["example.com/root/cmd/tool"] != "deps" {
+		t.Fatalf("CompleteDependencies() statuses = %#v", result)
+	}
+}
+
+func absTestdataPath(t *testing.T, name string) string {
 	t.Helper()
-	if err := os.MkdirAll(filepath.Dir(name), 0o755); err != nil {
+	path, err := filepath.Abs(filepath.Join("testdata", name))
+	if err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(name, []byte(data), 0o644); err != nil {
-		t.Fatal(err)
-	}
+	return path
 }
 
 func withChangeDirectory(t *testing.T, dir string) {

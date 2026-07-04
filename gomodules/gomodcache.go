@@ -228,7 +228,16 @@ func (m ModCache) CompleteUsedModules(ctx context.Context, result map[string]str
 		return
 	}
 	for line := range strings.Lines(string(output)) {
-		mod, ver, hasVer := strings.Cut(strings.TrimSpace(line), " ")
+		fields := strings.Fields(line)
+		if len(fields) == 0 {
+			continue
+		}
+		mod := fields[0]
+		ver := ""
+		hasVer := len(fields) > 1
+		if hasVer {
+			ver = fields[1]
+		}
 		if hasVersion {
 			if mod != pkg {
 				continue
