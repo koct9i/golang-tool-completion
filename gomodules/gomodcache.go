@@ -223,12 +223,12 @@ func (m ModCache) completeModule(result map[string]string, pkg, modpath string) 
 
 func (m ModCache) CompleteUsedModules(ctx context.Context, result map[string]string, prefix string) {
 	pkg, version, hasVersion := strings.Cut(prefix, "@")
-	output, err := runGo(ctx, "list", "-m", "all")
+	output, err := runGo(ctx, "list", "-m", "-mod=readonly", "-f", "{{.Path}}@{{.Version}}", "all")
 	if err != nil {
 		return
 	}
 	for line := range strings.Lines(string(output)) {
-		mod, ver, hasVer := strings.Cut(strings.TrimSpace(line), " ")
+		mod, ver, _ := strings.Cut(strings.TrimSpace(line), "@")
 		if hasVersion {
 			if mod != pkg {
 				continue
@@ -239,7 +239,7 @@ func (m ModCache) CompleteUsedModules(ctx context.Context, result map[string]str
 			if strings.HasPrefix(ver, version) {
 				result[pkg+"@"+ver] = "used"
 			}
-		} else if hasVer && isMatchingPackage(mod, pkg) {
+		} else if ver != "" && isMatchingPackage(mod, pkg) {
 			result[mod+"@"] = "used"
 		}
 	}

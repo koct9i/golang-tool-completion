@@ -1,31 +1,33 @@
 # golang-tool-completion
 
-Shell tab-completion for the `go` command — covering every subcommand, flag, and package/module argument.
+Shell tab-completion for the `go` command — covering subcommands, flags, package arguments, module arguments, versions, tools, and documentation symbols.
 
-Also provides comprehensive `--help` for command flags with links to online documentation.
+It also provides comprehensive `--help` output for command flags with links to online Go documentation.
 
 ## Overview
 
 `golang-tool-completion` is a transparent wrapper around the standard `go` tool.
 
-It models all `go` subcommands, flags and arguments using [urfave/cli](https://github.com/urfave/cli) to provide help and shell tab-completion.
+It models `go` subcommands, flags, and arguments with [urfave/cli](https://github.com/urfave/cli) to provide usage help and shell tab-completion. Normal invocations are forwarded unchanged to the real `go` binary; only `completion` and `--help` are handled by this program.
 
-All invocation besides `completion` and `--help` are forwarded unchanged to the standard `go` binary.
-
-```
+```text
 go build -h          → prints complete usage and link to documentation
 go build -<TAB>      → completes command flags with a short description
 go get <TAB>         → completes package paths from cached and trending modules
-go get <substr><TAB> → completes module paths by substring >= 3 chars long
-go get <pkg>@<TAB>   → completes package version
-go get -u <TAB>      → completes modules for imported packages
+go get <substr><TAB> → completes module paths by substring (>= 3 chars long)
+go get <pkg>@<TAB>   → completes package versions
+go get -u <TAB>      → completes modules already used by the current module
 go get -tool <TAB>   → completes used and well-known tool packages
-go doc <pkg>.<TAB>   → completes package symbol
-go tool <TAB>        → completes tool command name
+go doc <pkg>.<TAB>   → completes package symbols
+go tool <TAB>        → completes tool command names
 go install <TAB>     → completes used and well-known tool packages
 ```
 
-For example `go i<TAB> gopls<TAB>@l<TAB>` for `go install golang.org/x/tools/gopls@latest`.
+For example, type `go i<TAB> gopls<TAB>@l<TAB>` to expand toward:
+
+```sh
+go install golang.org/x/tools/gopls@latest
+```
 
 ## Installation
 
@@ -33,13 +35,13 @@ For example `go i<TAB> gopls<TAB>@l<TAB>` for `go install golang.org/x/tools/gop
 go install github.com/koct9i/golang-tool-completion@latest
 ```
 
-For better `go <command> -help` add shell alias:
+For better `go <command> -help` output, add a shell alias:
 
 ```sh
 alias go=golang-tool-completion
 ```
 
-Install shell completion script for your current shell:
+Install a shell completion script for your current shell:
 
 ```sh
 golang-tool-completion completion --install
@@ -61,19 +63,73 @@ Scripts are written to `$XDG_DATA_HOME` (defaults to `~/.local/share`):
 | fish | `~/.local/share/fish/vendor_completions.d/go.fish` |
 | zsh  | `~/.local/share/zsh/site-functions/_go` |
 
-Restart your shell (or `source` the script) to activate completion.
+Restart your shell, or source the generated script, to activate completion.
 
-Without `--install` it prints completion script to stdout:
+Without `--install`, the command prints a completion script to stdout:
 
 ```sh
 golang-tool-completion completion [SHELL]
 ```
 
-For example to source script: `. <(golang-tool-completion completion bash)`.
+For example, to source bash completion without installing it:
+
+```sh
+. <(golang-tool-completion completion bash)
+```
+
+## Configuration
+
+### Trending modules
+
+Argument completion for `go get` and package-oriented commands can use trending modules in addition to modules present in cache.
+
+The list is read from:
+
+```text
+~/.config/golang-tool-completion/trending.txt
+```
+
+If that file does not exist, the program uses the embedded [`gomodules/trending.txt`](gomodules/trending.txt) list of 1000 trending Go modules from [goproxy.cn](https://goproxy.cn/stats).
+
+Disable trending modules:
+
+```sh
+golang-tool-completion completion --disable-trending
+```
+
+Add your own module:
+
+```sh
+golang-tool-completion completion --add-trending <module> [--description <description>]
+```
+
+### Tool packages
+
+Completion for `go get -tool`, `go install`, and `go run` can suggest well-known tools in addition to main packages from cached modules and tools added into current module.
+
+The list is read from:
+
+```text
+~/.config/golang-tool-completion/tools.txt
+```
+
+If that file does not exist, the program uses the embedded [`gomodules/tools.txt`](gomodules/tools.txt) list of tools picked from [awesome-go](https://github.com/avelino/awesome-go).
+
+Disable tool suggestions:
+
+```sh
+golang-tool-completion completion --disable-tools
+```
+
+Add your own tool package:
+
+```sh
+golang-tool-completion completion --add-tool <package> [--description <description>]
+```
 
 ## How it works
 
-```
+```text
 shell <TAB>
   └─ golang-tool-completion completion --complete <shell> -- <words...>
        └─ emits completion suggestions
@@ -85,28 +141,19 @@ shell <Enter>
 
 [Shell tab-completion](completion/completion.go) is implemented from scratch.
 
-## Packages
+Package and module completion combines several sources:
 
-Argument completion for `get`, `install`, `run`, and similar commands fetches package names from:
-
-* **Cached modules** — directories named `<module>@<version>/` under `GOMODCACHE`
-* **Trending** — frequently used open-source modules for `go get`
-* **Tools** — frequently used programs for `go get -tool`, `go install` and `go run`
-
-List of trending modules is read from `~/.config/golang-tool-completion/trending.txt`,
-fallback is an [embedded](gomodules/trending.txt) list of 1000 trending go modules from [goproxy.cn](https://goproxy.cn/stats).
-
-To disable trending modules in completion: `golang-tool-completion completion --disable-trending`.
-To add own modules: `golang-tool-completion completion --add-trending <module> [--description <description>]`.
-
-List of main packages for tool programs is read from `~/.config/golang-tool-completion/tools.txt`,
-fallback is an [embedded](gomodules/tools.txt) list of well-known tools picked from [awesome-go](https://github.com/avelino/awesome-go).
-
-To disable tools in completion: `golang-tool-completion completion --disable-tools`.
-To add own tools: `golang-tool-completion completion --add-tool <package> [--description <description>]`.
+* **Local module data** from `go list -deps`, `go list -m all`, `go list ./...`, and `go doc -short`.
+* **Cached modules** from directories named `<module>@<version>/` under `GOMODCACHE`.
+* **Cached module versions** from `GOMODCACHE/cache/download/<module>/@v/list`.
+* **Trending modules** for discovery-oriented `go get` workflows.
+* **Main packages** from cached modules for `go run` and `go install`.
+* **Tools** from `go tool`, `go list tool` and list of well-known tools.
 
 ## Links
 
+- [Go command documentation](https://pkg.go.dev/cmd/go)
+- [Go module cache reference](https://go.dev/ref/mod#module-cache)
 - [golang proposal: bash_completions support #58598](https://github.com/golang/go/issues/58598)
 - [github.com/urfave/cli](https://github.com/urfave/cli)
 - [github.com/posener/complete](https://github.com/posener/complete/tree/master)
