@@ -81,12 +81,8 @@ func (m ModCache) CompleteModules(result map[string]string, prefix string) {
 	}
 }
 
-func (m ModCache) iterPackageVersions(prefix string) iter.Seq2[string, string] {
+func (m ModCache) iterPackageVersions(escaped string) iter.Seq2[string, string] {
 	return func(yield func(string, string) bool) {
-		escaped, err := escapePath(prefix)
-		if err != nil {
-			return
-		}
 		n := len(escaped)
 		for i := range n + 1 {
 			if i < n && escaped[i] != filepath.Separator {
@@ -109,7 +105,7 @@ func (m ModCache) iterPackageVersions(prefix string) iter.Seq2[string, string] {
 					version = v
 				}
 				packagepath := filepath.Join(moddir, entryname) + relpath
-				m.log("package %q path %q version %q", prefix, packagepath, version)
+				m.log("package %q path %q version %q", escaped, packagepath, version)
 				if !yield(packagepath, version) {
 					break
 				}
@@ -123,8 +119,12 @@ func (m ModCache) CompleteMainPackages(ctx context.Context, result map[string]st
 		return
 	}
 	pkgPrefix, versionPrefix, hasVersion := strings.Cut(prefix, "@")
+	escaped, err := escapePath(pkgPrefix)
+	if err != nil {
+		return
+	}
 	var bestDir, bestVersion string
-	for pkgpath, version := range m.iterPackageVersions(pkgPrefix) {
+	for pkgpath, version := range m.iterPackageVersions(escaped) {
 		if hasVersion {
 			if !strings.HasPrefix(version, versionPrefix) {
 				continue
@@ -148,6 +148,8 @@ func (m ModCache) CompleteMainPackages(ctx context.Context, result map[string]st
 			}
 		}
 		return
+	} else {
+		m.completeModule(result, pkgPrefix, escaped)
 	}
 	if bestDir == "" || m.dir == "" {
 		return

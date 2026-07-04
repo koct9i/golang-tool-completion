@@ -110,6 +110,47 @@ type Completor interface {
 	Complete(ctx context.Context, result map[string]string, prefix string)
 }
 
+type ArgumentCompletor func(context.Context, map[string]string, string)
+
+func (a ArgumentCompletor) Complete(ctx context.Context, result map[string]string, prefix string) {
+	a(ctx, result, prefix)
+}
+
+type StringFlag struct {
+	cli.StringFlag
+	CompleteFlag     func(context.Context, map[string]string, string)
+	CompleteArgument ArgumentCompletor
+}
+
+func (f *StringFlag) Set(name, value string) error {
+	if WithinCompletion && f.CompleteArgument != nil {
+		ParsedArguments = append(ParsedArguments, value)
+		ArgumentCompletors = append(ArgumentCompletors, f.CompleteArgument)
+	}
+	return f.StringFlag.Set(name, value)
+}
+
+func (f *StringFlag) Complete(ctx context.Context, result map[string]string, prefix string) {
+	if f.CompleteFlag != nil {
+		f.CompleteFlag(ctx, result, prefix)
+	} else {
+		completeFlag(result, prefix, f.Name, f.Usage)
+	}
+}
+
+func completeFlag(result map[string]string, prefix, name, usage string) {
+	dash := "-"
+	switch {
+	case strings.HasPrefix(prefix, "--"):
+		dash = "--"
+	case len(prefix) > 1 && prefix[0] == '-':
+		dash = "-"
+	case len(name) > 1:
+		dash = "--"
+	}
+	result[dash+name] = usage
+}
+
 type Argument struct {
 	Name        string
 	UsageText   string
@@ -393,14 +434,17 @@ func Completion() *cli.Command {
 					return cli.Exit("", 0)
 				},
 			},
-			&cli.StringFlag{
-				Name:     "add-tool",
-				Usage:    "Add main packages with descriptions into list of tools",
-				Category: catTrending,
-				Action: func(ctx context.Context, c *cli.Command, arg string) error {
-					addTools = append(addTools, arg)
-					return nil
+			&StringFlag{
+				StringFlag: cli.StringFlag{
+					Name:     "add-tool",
+					Usage:    "Add main packages with descriptions into list of tools",
+					Category: catTrending,
+					Action: func(ctx context.Context, c *cli.Command, arg string) error {
+						addTools = append(addTools, arg)
+						return nil
+					},
 				},
+				CompleteArgument: gomodules.CompleteMainPackages,
 			},
 			&cli.StringFlag{
 				Name:     "description",
