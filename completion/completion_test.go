@@ -86,17 +86,10 @@ func TestCompletionCommandEndToEnd(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	configDir := filepath.Join(t.TempDir(), "config")
-	configCompletionDir := filepath.Join(configDir, "golang-tool-completion")
-	if err := os.MkdirAll(configCompletionDir, 0o755); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(filepath.Join(configCompletionDir, "trending.txt"), []byte("example.com/substring-module\tSubstring module\n"), 0o644); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(filepath.Join(configCompletionDir, "tools.txt"), []byte("example.com/acme/cmd/subtool\tSubstring tool\n"), 0o644); err != nil {
-		t.Fatal(err)
-	}
+	configDir := writeCompletionConfig(t, map[string]string{
+		"trending.txt": "example.com/substring-module\tSubstring module\n",
+		"tools.txt":    "example.com/acme/cmd/subtool\tSubstring tool\n",
+	})
 
 	tests := []struct {
 		name          string
@@ -204,6 +197,22 @@ func TestCompletionCommandEndToEnd(t *testing.T) {
 			}
 		})
 	}
+}
+
+func writeCompletionConfig(t *testing.T, files map[string]string) string {
+	t.Helper()
+
+	configDir := filepath.Join(t.TempDir(), "config")
+	configCompletionDir := filepath.Join(configDir, "golang-tool-completion")
+	if err := os.MkdirAll(configCompletionDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	for name, content := range files {
+		if err := os.WriteFile(filepath.Join(configCompletionDir, name), []byte(content), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	return configDir
 }
 
 func buildCompletionHandler(t *testing.T) string {
