@@ -23,11 +23,7 @@ go tool <TAB>        → completes tool command names
 go install <TAB>     → completes used and well-known tool packages
 ```
 
-For example, type `go i<TAB> gopls<TAB>@l<TAB>` to expand toward:
-
-```sh
-go install golang.org/x/tools/gopls@latest
-```
+For example `go i<TAB> gopls<TAB>@l<TAB>` turns into `go install golang.org/x/tools/gopls@latest`.
 
 ## Installation
 
