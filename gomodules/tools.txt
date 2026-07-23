@@ -47,6 +47,7 @@ github.com/nametake/golangci-lint-langserver	golangci-lint language server https
 github.com/ncruces/zenity/cmd/zenity	cross-platform UI dialogs https://github.com/ncruces/zenity
 github.com/oapi-codegen/oapi-codegen/v2/cmd/oapi-codegen	OpenAPI Go code generator https://github.com/oapi-codegen/oapi-codegen
 github.com/onsi/ginkgo/v2/ginkgo	Ginkgo Go test runner https://onsi.github.io/ginkgo
+github.com/openai/openai-cli/cmd/openai	The official CLI for the OpenAI REST API https://github.com/openai/openai-cli
 github.com/opencontainers/umoci/cmd/umoci	OCI container image CLI https://umo.ci
 github.com/pressly/goose/v3/cmd/goose	database migration tool https://pressly.github.io/goose
 github.com/projectdiscovery/httpx/cmd/httpx	HTTP toolkit https://github.com/projectdiscovery/httpx
