@@ -225,24 +225,37 @@ func (m ModCache) completeModule(result map[string]string, pkg, modpath string) 
 
 func (m ModCache) CompleteUsedModules(ctx context.Context, result map[string]string, prefix string) {
 	pkg, version, hasVersion := strings.Cut(prefix, "@")
-	output, err := runGo(ctx, "list", "-m", "-mod=readonly", "-f", "{{.Path}}@{{.Version}}", "all")
+	var output []byte
+	var err error
+	if hasVersion {
+		output, err = runGo(ctx, "list", "-m", "-mod=readonly", "-versions", "-f", `{{range .Versions}}{{.}}{{"\n"}}{{end}}`, pkg)
+	} else {
+		output, err = runGo(ctx, "list", "-m", "-mod=readonly", "-f", "{{.Path}}", "all")
+	}
 	if err != nil {
 		return
 	}
 	for line := range strings.Lines(string(output)) {
-		mod, ver, _ := strings.Cut(strings.TrimSpace(line), "@")
+		word := strings.TrimSpace(line)
 		if hasVersion {
-			if mod != pkg {
-				continue
+			if strings.HasPrefix(word, version) {
+				result[pkg+"@"+word] = word
 			}
-			if escaped, err := escapePath(mod); err == nil {
-				m.completeVersion(result, mod, version, escaped, "")
+		} else if isMatchingPackage(word, pkg) {
+			result[word+"@"] = "used"
+		}
+	}
+	if hasVersion {
+		for _, v := range []string{"latest", "patch"} {
+			if strings.HasPrefix(v, version) {
+				result[pkg+"@"+v] = v
 			}
-			if strings.HasPrefix(ver, version) {
-				result[pkg+"@"+ver] = "used"
+		}
+	} else {
+		for _, pattern := range []string{"go", "toolchain"} {
+			if strings.HasPrefix(pattern, prefix) {
+				result[strings.TrimSpace(pattern)] = "golang"
 			}
-		} else if ver != "" && isMatchingPackage(mod, pkg) {
-			result[mod+"@"] = "used"
 		}
 	}
 }

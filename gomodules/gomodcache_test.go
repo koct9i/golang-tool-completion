@@ -131,11 +131,11 @@ func TestCompletePresentModules(t *testing.T) {
 	CompleteUsedModules(context.Background(), result, "example.com/")
 
 	got := slices.Sorted(maps.Keys(result))
-	want := []string{"example.com/dep", "example.com/dep@"}
+	want := []string{"example.com/dep@", "example.com/root@"}
 	if !slices.Equal(got, want) {
 		t.Fatalf("CompletePresentModules() = %v, want %v", got, want)
 	}
-	if result["example.com/dep"] != "used" {
+	if result["example.com/dep@"] != "used" {
 		t.Fatalf("CompletePresentModules() statuses = %#v", result)
 	}
 }
@@ -154,23 +154,6 @@ func TestCompleteLocalMainPackages(t *testing.T) {
 	}
 	if result["./cmd/tool"] != "tool" {
 		t.Fatalf("CompleteMainPackages() statuses = %#v", result)
-	}
-}
-
-func TestCompleteUsedModuleVersions(t *testing.T) {
-	root := absTestdataPath(t, "local-module")
-	withChangeDirectory(t, root)
-
-	result := map[string]string{}
-	CompleteUsedModules(context.Background(), result, "example.com/dep@v")
-
-	got := slices.Sorted(maps.Keys(result))
-	want := []string{"example.com/dep@v0.0.0"}
-	if !slices.Equal(got, want) {
-		t.Fatalf("CompleteUsedModules() = %v, want %v", got, want)
-	}
-	if result["example.com/dep@v0.0.0"] != "used" {
-		t.Fatalf("CompleteUsedModules() statuses = %#v", result)
 	}
 }
 

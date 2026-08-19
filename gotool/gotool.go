@@ -450,6 +450,7 @@ func Install() *cli.Command {
 }
 
 func List() *cli.Command {
+	var modules bool
 	return &cli.Command{
 		Name:  "list",
 		Usage: "list packages or modules",
@@ -464,7 +465,7 @@ func List() *cli.Command {
 			&cli.StringFlag{Name: "f", Usage: "Print using a custom format.", Category: catOutput},
 			&cli.BoolFlag{Name: "find", Usage: "Identify packages but do not resolve dependencies.", Category: catGeneral},
 			&cli.BoolFlag{Name: "json", Usage: "Print JSON instead of text.", Category: catOutput},
-			&cli.BoolFlag{Name: "m", Usage: "List modules instead of packages.", Category: catModule},
+			&cli.BoolFlag{Name: "m", Usage: "List modules instead of packages.", Category: catModule, Destination: &modules},
 			&cli.StringFlag{Name: "reuse", Usage: "Reuse prior -m -json output from file.", Category: catModule},
 			&cli.BoolFlag{Name: "test", Usage: "Include test packages.", Category: catTest},
 			&cli.BoolFlag{Name: "u", Usage: "When -m, also show available upgrades (with -versions).", Category: catModule},
@@ -473,7 +474,26 @@ func List() *cli.Command {
 		}, buildFlags()...),
 		ArgsUsage: "[packages]",
 		Arguments: []cli.Argument{
-			&cli.StringArgs{Name: "targets", UsageText: "Packages (or modules when -m)", Min: 0, Max: -1},
+			&completion.Argument{
+				Name:      "targets",
+				UsageText: "Packages (or modules when -m)",
+				Max:       -1,
+				OnComplete: func(ctx context.Context, result map[string]string, prefix string) {
+					var patterns []string
+					if modules {
+						gomodules.CompleteUsedModules(ctx, result, prefix)
+						patterns = []string{"all"}
+					} else {
+						gomodules.CompleteDependencies(ctx, result, prefix)
+						patterns = []string{"all", "tool", "work", "std", "cmd"}
+					}
+					for _, pattern := range patterns {
+						if strings.HasPrefix(pattern, prefix) {
+							result[strings.TrimSpace(pattern)] = "pattern"
+						}
+					}
+				},
+			},
 		},
 		Action:       DummyAction,
 		OnUsageError: NoUsageErrror,
