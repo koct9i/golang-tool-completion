@@ -486,6 +486,7 @@ func Completion() *cli.Command {
 					//nolint:errcheck // err
 					fmt.Fprintf(c.ErrWriter, format+"\n", args...)
 				}
+				gomodules.GoStderr = true
 			}
 			return doCompletion(ctx, c, shell, completeArgs)
 		},

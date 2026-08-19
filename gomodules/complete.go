@@ -16,6 +16,7 @@ var (
 	ChangeDirectory string
 	ModFile         string
 	DocPackage      string
+	GoStderr        bool
 )
 
 func CompleteModules(ctx context.Context, result map[string]string, prefix string) {
@@ -164,7 +165,9 @@ func expandPath(arg string) string {
 func runGo(ctx context.Context, command string, args ...string) ([]byte, error) {
 	//nolint:gosec //command
 	cmd := exec.CommandContext(ctx, "go", command)
-	cmd.Stderr = os.Stderr
+	if GoStderr {
+		cmd.Stderr = os.Stderr
+	}
 	if ChangeDirectory != "" {
 		cmd.Args = append(cmd.Args, "-C", expandPath(ChangeDirectory))
 	}
