@@ -1,6 +1,7 @@
 entgo.io/ent/cmd/ent	entity framework code generator https://entgo.io
 github.com/99designs/gqlgen	GraphQL server generator https://gqlgen.com
 github.com/air-verse/air	live reload for Go apps https://github.com/air-verse/air
+github.com/antonmedv/fx	Terminal JSON viewer & processor https://github.com/antonmedv/fx
 github.com/bufbuild/buf/cmd/buf	Protocol Buffers toolchain https://buf.build
 github.com/caarlos0/svu/v3	semantic version utility https://github.com/caarlos0/svu
 github.com/cespare/reflex	watch files and rerun commands https://github.com/cespare/reflex
@@ -36,6 +37,7 @@ github.com/grpc-ecosystem/grpc-gateway/v2/protoc-gen-openapiv3	OpenAPI generator
 github.com/incu6us/goimports-reviser/v3	Go imports formatter https://github.com/incu6us/goimports-reviser
 github.com/josharian/impl	generate method stubs https://github.com/josharian/impl
 github.com/jstemmer/go-junit-report/v2	convert go test output to JUnit XML https://github.com/jstemmer/go-junit-report
+github.com/junegunn/fzf	A command-line fuzzy finder https://github.com/junegunn/fzf
 github.com/kisielk/errcheck	error return checker https://github.com/kisielk/errcheck
 github.com/klauspost/asmfmt/cmd/asmfmt	Go assembler formatter https://github.com/klauspost/asmfmt
 github.com/koct9i/golang-tool-completion	shell completion for golang tool https://github.com/koct9i/golang-tool-completion
