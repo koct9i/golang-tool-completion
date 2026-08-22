@@ -4,6 +4,7 @@ import (
 	"maps"
 	"os"
 	"path/filepath"
+	"runtime"
 	"slices"
 	"strings"
 	"testing"
@@ -102,6 +103,11 @@ func TestAddTools(t *testing.T) {
 		tools = current
 	})
 	config := t.TempDir()
+	if runtime.GOOS == "darwin" {
+		t.Setenv("HOME", config)
+		config += "/Library/Application Support"
+		_ = os.MkdirAll(config, 0o700)
+	}
 	t.Setenv("XDG_CONFIG_HOME", config)
 
 	if err := AddTools([]string{"example.com/tool/cmd/tool"}, []string{"Example tool"}); err != nil {
