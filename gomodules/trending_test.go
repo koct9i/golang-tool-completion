@@ -106,7 +106,9 @@ func TestAddTools(t *testing.T) {
 	if runtime.GOOS == "darwin" {
 		t.Setenv("HOME", config)
 		config += "/Library/Application Support"
-		_ = os.MkdirAll(config, 0o700)
+		if err := os.MkdirAll(config, 0o700); err != nil {
+			t.Fatal(err)
+		}
 	}
 	t.Setenv("XDG_CONFIG_HOME", config)
 
