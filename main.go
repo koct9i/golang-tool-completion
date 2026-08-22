@@ -164,8 +164,7 @@ func main() {
 	}
 	if err != nil {
 		exitCode := 1
-		var exitCoder cli.ExitCoder
-		if errors.As(err, &exitCoder) {
+		if exitCoder, ok := errors.AsType[cli.ExitCoder](err); ok {
 			exitCode = exitCoder.ExitCode()
 		}
 		if exitCode != 0 {
