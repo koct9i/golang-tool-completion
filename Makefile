@@ -1,4 +1,4 @@
-all: fmt vet test build
+all: fmt vet lint test build
 
 build:
 	go build .
