@@ -8,6 +8,7 @@ github.com/cespare/reflex	watch files and rerun commands https://github.com/cesp
 github.com/charmbracelet/glow/v2	terminal markdown renderer https://github.com/charmbracelet/glow
 github.com/charmbracelet/gum	glamorous shell scripts https://github.com/charmbracelet/gum
 github.com/charmbracelet/vhs	terminal GIF recorder https://github.com/charmbracelet/vhs
+github.com/cli/cli/v2/cmd/gh	GitHub’s official CLI https://github.com/cli/cli
 github.com/client9/misspell/cmd/misspell	spell checker for source code https://github.com/client9/misspell
 github.com/cortesi/modd/cmd/modd	developer daemon and file watcher https://github.com/cortesi/modd
 github.com/cucumber/godog/cmd/godog	BDD test runner https://go-dog.github.io/godog

@@ -21,3 +21,6 @@ test:
 
 generate:
 	go generate ./...
+
+commit:
+	git commit -a -m better
