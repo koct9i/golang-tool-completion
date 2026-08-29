@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"unicode"
 )
 
 //go:generate bash -c "curl -s https://goproxy.cn/stats/trends/last-30-days | jq -r 'sort_by(.download_count)|reverse|.[].module_path' >trending.txt"
@@ -92,7 +93,7 @@ func completeKnownPackages(results map[string]string, prefix, packages, defaultD
 		if tail, found := strings.CutPrefix(line, prefix); found {
 			tail, _ = strings.CutSuffix(tail, "\n")
 			var desc string
-			if tail, desc, found = strings.Cut(tail, "\t"); !found {
+			if tail, desc, found = cutDesc(tail); !found {
 				desc = fmt.Sprintf("%s #%v", defaultDescription, index)
 			}
 			if word, _, found := strings.Cut(tail, "/"); found && shallow {
@@ -108,7 +109,7 @@ func completeKnownPackages(results map[string]string, prefix, packages, defaultD
 		}
 		if len(prefix) >= MinSubstringLen && strings.Contains(line, prefix) {
 			pkg, _ := strings.CutSuffix(line, "\n")
-			pkg, desc, found := strings.Cut(pkg, "\t")
+			pkg, desc, found := cutDesc(pkg)
 			if !found {
 				desc = fmt.Sprintf("%s #%v", defaultDescription, index)
 			}
@@ -121,4 +122,11 @@ func completeKnownPackages(results map[string]string, prefix, packages, defaultD
 			}
 		}
 	}
+}
+
+func cutDesc(s string) (pkg, desc string, found bool) {
+	if i := strings.IndexFunc(s, unicode.IsSpace); i >= 0 {
+		return s[:i], strings.TrimSpace(s[i:]), true
+	}
+	return s, "", false
 }

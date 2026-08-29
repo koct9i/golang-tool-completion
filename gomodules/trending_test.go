@@ -15,7 +15,7 @@ import (
 func TestTrendingModules(t *testing.T) {
 	for line := range strings.Lines(trending) {
 		line, _ = strings.CutSuffix(line, "\n")
-		mod, _, _ := strings.Cut(line, "\t")
+		mod, _, _ := cutDesc(line)
 		if err := module.CheckPath(mod); err != nil {
 			t.Errorf("Trending %q %v", mod, err)
 		}
@@ -64,7 +64,7 @@ func TestToolPackages(t *testing.T) {
 
 	for line := range strings.Lines(tools) {
 		line, _ = strings.CutSuffix(line, "\n")
-		pkg, _, _ := strings.Cut(line, "\t")
+		pkg, _, _ := cutDesc(line)
 		if err := module.CheckImportPath(pkg); err != nil {
 			t.Errorf("Tool package %q %v", pkg, err)
 		}
