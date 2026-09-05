@@ -68,6 +68,7 @@ github.com/tomnomnom/assetfinder	find related domains https://github.com/tomnomn
 github.com/tomnomnom/gron	make JSON greppable https://github.com/tomnomnom/gron
 github.com/tomnomnom/httprobe	probe HTTP and HTTPS servers https://github.com/tomnomnom/httprobe
 github.com/vadimi/grpc-client-cli/cmd/grpc-client-cli	gRPC client CLI https://github.com/vadimi/grpc-client-cli
+github.com/tsenart/vegeta	HTTP load testing tool and library. It's over 9000!
 github.com/vektra/mockery/v3	generate mocks for interfaces https://vektra.github.io/mockery
 golang.org/x/perf/cmd/benchstat	benchmark comparison tool https://pkg.go.dev/golang.org/x/perf/cmd/benchstat
 golang.org/x/pkgsite/cmd/pkgsite	serve Go package documentation https://pkg.go.dev/golang.org/x/pkgsite/cmd/pkgsite
