@@ -21,6 +21,7 @@ go get -tool <TAB>   → completes used and well-known tool packages
 go doc <pkg>.<TAB>   → completes package symbols
 go tool <TAB>        → completes tool command names
 go install <TAB>     → completes used and well-known tool packages
+go mod init <TAB>    → completes git repository and subdirectory
 ```
 
 For example `go i<TAB> gopls<TAB>@l<TAB>` turns into `go install golang.org/x/tools/gopls@latest`.
