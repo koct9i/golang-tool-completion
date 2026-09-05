@@ -18,6 +18,7 @@ go get <substr><TAB> → completes module paths by substring (>= 3 chars long)
 go get <pkg>@<TAB>   → completes package versions
 go get -u <TAB>      → completes modules already used by the current module
 go get -tool <TAB>   → completes used and well-known tool packages
+go mod init <TAB>    → completes the upstream Git repository and current subdirectory
 go doc <pkg>.<TAB>   → completes package symbols
 go tool <TAB>        → completes tool command names
 go install <TAB>     → completes used and well-known tool packages

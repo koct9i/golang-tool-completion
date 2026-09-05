@@ -748,7 +748,12 @@ func ModInit() *cli.Command {
 		Metadata:  map[string]any{"DocURL": docAnchor("Initialize_new_module_in_current_directory")},
 		ArgsUsage: "[module-path]",
 		Arguments: []cli.Argument{
-			&cli.StringArgs{Name: "module-path", UsageText: "Optional module path to initialize", Min: 0, Max: 1},
+			&completion.Argument{
+				Name:       "module-path",
+				UsageText:  "Optional module path to initialize",
+				Max:        1,
+				OnComplete: gomodules.CompleteGitModule,
+			},
 		},
 		Action:       DummyAction,
 		OnUsageError: NoUsageErrror,
