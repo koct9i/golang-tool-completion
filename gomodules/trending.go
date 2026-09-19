@@ -9,8 +9,6 @@ import (
 	"unicode"
 )
 
-//go:generate bash -c "curl -s https://goproxy.cn/stats/trends/last-30-days | jq -r 'sort_by(.download_count)|reverse|.[].module_path' >trending.txt"
-
 //go:embed trending.txt
 var trending string
 

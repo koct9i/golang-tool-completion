@@ -86,7 +86,8 @@ The list is read from:
 ~/.config/golang-tool-completion/trending.txt
 ```
 
-If that file does not exist, the program uses the embedded [`gomodules/trending.txt`](gomodules/trending.txt) list of 1000 trending Go modules from [goproxy.cn](https://goproxy.cn/stats).
+If that file does not exist, the program uses the embedded [`gomodules/trending.txt`](gomodules/trending.txt),
+originally based on list of 1000 trending Go modules from [goproxy.cn](https://goproxy.cn/stats).
 
 Disable trending modules:
 
