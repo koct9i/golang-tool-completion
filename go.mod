@@ -1,6 +1,6 @@
 module github.com/koct9i/golang-tool-completion
 
-go 1.26.8
+go 1.26.10
 
 require (
 	github.com/urfave/cli/v3 v3.12.0
